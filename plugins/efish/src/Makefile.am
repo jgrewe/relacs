@@ -10,7 +10,8 @@ pluginlib_LTLIBRARIES = \
     libefishsam.la \
     libefishficurve.la \
     libefishfilestimulus.la \
-    libefishchirps.la
+    libefishchirps.la \
+    libefishspiketriggeredaverage.la
 
 if RELACS_COND_TML
 pluginlib_LTLIBRARIES += \
@@ -357,6 +358,48 @@ libefishreceptivefield_la_include_HEADERS = $(HEADER_PATH)/receptivefield.h
 
 
 
+libefishspiketriggeredaverage_la_CPPFLAGS = \
+    -I$(top_srcdir)/shapes/include \
+    -I$(top_srcdir)/daq/include \
+    -I$(top_srcdir)/numerics/include \
+    -I$(top_srcdir)/options/include \
+    -I$(top_srcdir)/datafile/include \
+    -I$(top_srcdir)/plot/include \
+    -I$(top_srcdir)/widgets/include \
+    -I$(top_srcdir)/relacs/include \
+    -I$(srcdir)/../../ephys/include \
+    -I$(srcdir)/../../efield/include \
+    -I$(srcdir)/../include \
+    $(QT4_CPPFLAGS) $(NIX_CPPFLAGS)$(GSL_CPPFLAGS)
+
+libefishspiketriggeredaverage_la_LDFLAGS = \
+    -module -avoid-version \
+    $(QT4_LDFLAGS) $(NIX_LDFLAGS) $(GSL_LDFLAGS)
+
+libefishspiketriggeredaverage_la_LIBADD = \
+    $(builddir)/../../ephys/src/libephystraces.la \
+    $(builddir)/../../efield/src/libefieldtraces.la \
+    $(builddir)/../../efield/src/libefieldeodtools.la \
+    $(top_builddir)/relacs/src/librelacs.la \
+    $(top_builddir)/widgets/src/librelacswidgets.la \
+    $(top_builddir)/plot/src/librelacsplot.la \
+    $(top_builddir)/datafile/src/librelacsdatafile.la \
+    $(top_builddir)/daq/src/librelacsdaq.la \
+    $(top_builddir)/options/src/librelacsoptions.la \
+    $(top_builddir)/shapes/src/librelacsshapes.la \
+    $(top_builddir)/numerics/src/librelacsnumerics.la \
+    $(QT4_LIBS) $(NIX_LIBS) $(GSL_LIBS)
+
+$(libefishspiketriggeredaverage_la_OBJECTS) : moc_spiketriggeredaverage.cc
+
+libefishspiketriggeredaverage_la_SOURCES = spiketriggeredaverage.cc
+
+libefishspiketriggeredaverage_la_includedir = $(pkgincludedir)/efish
+
+libefishspiketriggeredaverage_la_include_HEADERS = $(HEADER_PATH)/spiketriggeredaverage.h
+
+
+
 check_PROGRAMS = \
     linktest_libefishbaselineactivity_la \
     linktest_libefishsession_la \
@@ -364,7 +407,8 @@ check_PROGRAMS = \
     linktest_libefishsam_la \
     linktest_libefishficurve_la \
     linktest_libefishfilestimulus_la \
-    linktest_libefishchirps_la
+    linktest_libefishchirps_la \
+    linktest_libefishspiketriggeredaverage_la
 
 if RELACS_COND_TML
 check_PROGRAMS += \
@@ -394,5 +438,8 @@ linktest_libefishchirps_la_LDADD = libefishchirps.la
 
 linktest_libefishreceptivefield_la_SOURCES = linktest.cc
 linktest_libefishreceptivefield_la_LDADD = libefishreceptivefield.la
+
+linktest_libefishspiketriggeredaverage_la_SOURCES = linktest.cc
+linktest_libefishspiketriggeredaverage_la_LDADD = libefishspiketriggeredaverage.la
 
 TESTS = $(check_PROGRAMS)
