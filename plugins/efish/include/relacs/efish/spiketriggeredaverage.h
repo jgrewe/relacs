@@ -54,6 +54,9 @@ public:
   SpikeTriggeredAverage( void );
   virtual int main( void );
 
+ private:
+  EventList spikeTimes;
+
 };
 
 
