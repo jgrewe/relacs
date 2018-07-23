@@ -63,6 +63,7 @@ public:
   double startTime, duration;
   GaussKernel kernel;
   void plotStimulus( const OutData &stimulus );
+  void analyze( EventList &spikes, int currentRepeat );
 };
 
 

@@ -87,6 +87,57 @@ void SpikeTriggeredAverage::plotStimulus(const OutData &stimulus) {
   stimPlot.unlock();
 }
 
+void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
+  //vector< vector < ArrayD > > eodspikes;
+  //eodspikes.resize( MaxTraces );
+  //vector< SampleDataD > isih;
+  int spikes_trace = 0;
+  for ( int k=0; k<MaxTraces; k++ ) {
+    if ( SpikeEvents[k] >= 0 ) {
+      spikes_trace = k;
+      break;
+    }
+  }
+
+  const EventData &spikeEvents = events( SpikeEvents[spikes_trace] );
+  vector< SampleDataD > spikerate;
+  vector< int > trials;
+  EventData sp( spikeEvents, startTime, startTime+duration, startTime );
+  myspikes[currentRepeat].clear();
+  myspikes[currentRepeat].append( spikeEvents, startTime, startTime+duration, startTime );
+  spikesPlot.lock();
+  spikesPlot.setYRange( 0.0, double(currentRepeat + 1.25) );
+  for (int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
+    double x = myspikes[currentRepeat][i];
+    spikesPlot.plotPoint(x, Plot::First, double( currentRepeat + 1 ), Plot::First, 0,
+                         Plot::StrokeVertical, 0.5, Plot::FirstY, Plot::Red, Plot::Red);
+  }
+  spikesPlot.draw();
+  spikesPlot.unlock();
+    /*    spikes[k].clear();
+    //eodspikes[k].clear();
+    trials.push_back( 0 );
+    if ( SpikeEvents[k] >= 0 ) {
+      // isih.push_back( SampleDataD( 0.0, 2.0*isimax, isistep, 0.0 ) );
+      // spikerate.push_back( SampleDataD( 0.0, ratetmax, ratedeltat, 0.0 ) );
+      if ( Repeats <= 0 ) {
+	spikes[k].reserve( int( Duration * 1000.0 ) );
+	eodspikes[k].reserve( int( Duration * 1000.0 ) );
+      }
+      else {
+	spikes[k].reserve( int( Duration * Repeats * 1000.0 ) );
+	eodspikes[k].reserve( int( Duration * Repeats * 1000.0 ) );
+      }
+    }
+    else {
+      isih.push_back( SampleDataD() );
+      spikerate.push_back( SampleDataD() );
+    }
+    */
+
+
+}
+
 int SpikeTriggeredAverage::main( void )
 {
   duration = number( "duration" );
@@ -100,6 +151,7 @@ int SpikeTriggeredAverage::main( void )
   double eod = eodAmplitude( trace( LocalEODTrace[0] ),
                              currentTime() - 0.2, currentTime() );
 
+  EventList spikes( count );
   OutData stimulus;
   stimulus.setTrace( GlobalAMEField );
   stimulus.setStepsize( 1.0/samplerate );
@@ -119,7 +171,8 @@ int SpikeTriggeredAverage::main( void )
       //stop();
       return Failed;
     }
-   sleep( pause ); 
+    analyze( spikes, i );
+    sleep( pause ); 
   }
   return Completed;
 }
