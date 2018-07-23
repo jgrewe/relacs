@@ -42,6 +42,10 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   addBoolean( "reconstruct", "Do the stimulus reconstruction", false );
   QVBoxLayout *vb = new QVBoxLayout;
   QHBoxLayout *hb = new QHBoxLayout;
+
+  startTime = 0.0;
+  duration = 0.0;
+  
   stimPlot.lock();
   stimPlot.setXLabel( "time [s]" );
   stimPlot.setYRange( -2.0, 2.0 );
@@ -70,10 +74,18 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   setLayout( hb );
 }
 
+void SpikeTriggeredAverage::plotStimulus(const OutData &stimulus) {
+  stimPlot.lock();
+  stimPlot.clear();
+  stimPlot.setTitle( "stimulus" );
+  stimPlot.plot( stimulus, 1.0, Plot::Yellow, 2, Plot::Solid );
+  stimPlot.setAutoScaleY();
+  stimPlot.unlock();
+}
 
 int SpikeTriggeredAverage::main( void )
 {
-  double duration = number( "duration" );
+  duration = number( "duration" );
   int count = number( "count" );
   double pause = number( "pause" );
   double cutoff = number( "cutoff" );
@@ -91,7 +103,9 @@ int SpikeTriggeredAverage::main( void )
   stimulus.setIntensity(1.0);
 
   plotStimulus();
+  plotStimulus( stimulus );
   for (int i = 0; i < count; ++i ) {
+    startTime = currentTime();
     write( stimulus );
     if ( !stimulus.success() ) {
       string s = "Output of stimulus failed!<br>Error is <b>";

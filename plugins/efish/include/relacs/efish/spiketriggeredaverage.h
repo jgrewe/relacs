@@ -61,6 +61,8 @@ public:
   Plot stimPlot;
   Plot spikesPlot;
   Plot staPlot;
+  double startTime, duration;
+  void plotStimulus( const OutData &stimulus );
 };
 
 
