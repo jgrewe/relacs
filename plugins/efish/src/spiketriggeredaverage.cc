@@ -40,6 +40,10 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   addNumber( "tmin", "Time before the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
   addNumber( "tmax", "Time after the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
   addBoolean( "reconstruct", "Do the stimulus reconstruction", false );
+  addBoolean( "psth", "Plot the firing rate.", false );
+  addNumber( "kernel", "Kernel width for firing rate estimation.", 0.001, 0.00001, 0.1, 0.0005, "s" ).setActivation( "psth", "true" );
+
+  kernel = GaussKernel(0.001);
   QVBoxLayout *vb = new QVBoxLayout;
   QHBoxLayout *hb = new QHBoxLayout;
 
@@ -102,8 +106,9 @@ int SpikeTriggeredAverage::main( void )
   stimulus.bandNoiseWave( duration, stimulus.stepsize(), 0.0, cutoff, contrast/100.0 );
   stimulus.setIntensity(1.0);
 
-  plotStimulus();
   plotStimulus( stimulus );
+  spikesPlot.clear();
+  staPlot.clear();
   for (int i = 0; i < count; ++i ) {
     startTime = currentTime();
     write( stimulus );

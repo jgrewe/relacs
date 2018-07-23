@@ -27,6 +27,7 @@
 #include <relacs/efield/traces.h>
 #include <relacs/efield/eodtools.h>
 #include <relacs/plot.h>
+#include <relacs/kernel.h>
 
 using namespace relacs;
 
@@ -56,12 +57,11 @@ public:
   virtual int main( void );
 
  private:
-  EventList spikeTimes;
-
   Plot stimPlot;
   Plot spikesPlot;
   Plot staPlot;
   double startTime, duration;
+  GaussKernel kernel;
   void plotStimulus( const OutData &stimulus );
 };
 
