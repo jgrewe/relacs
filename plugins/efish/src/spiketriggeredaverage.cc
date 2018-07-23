@@ -148,7 +148,11 @@ int SpikeTriggeredAverage::main( void )
   stimulus.setStepsize( 1.0/samplerate );
   stimulus.bandNoiseWave( duration, stimulus.stepsize(), 0.0, cutoff, contrast/100.0 );
   stimulus.setIntensity(1.0);
-
+  stimCopy.resize( stimulus.size(), 0.0 );
+  for ( int i = 0; i < stimulus.size(); ++i ) {
+    stimCopy[i] = stimulus[i];
+  }
+  stimCopy.setStepsize( stimulus.stepsize() );
   plotStimulus( stimulus );
   spikesPlot.clear();
   staPlot.clear();
