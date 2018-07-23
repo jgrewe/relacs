@@ -37,7 +37,7 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   addNumber( "pause", "Time between successive stimulus presentations", 0.5, 0.0, 100.0, 0.01, "s" ).setActivation( "count", ">1" );
 
   newSection( "Analysis" );
-  addNumber( "tmin", "Time before the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
+  addNumber( "tmin", "Time before the spike time", -0.02, -0.001, -0.15, 0.001, "s", "ms" );
   addNumber( "tmax", "Time after the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
   addBoolean( "reconstruct", "Do the stimulus reconstruction", false );
   addBoolean( "psth", "Plot the firing rate.", false );
@@ -71,6 +71,23 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   spikesPlot.setTMarg( 3 );
   spikesPlot.setBMarg( 4 );
   spikesPlot.unlock();
+
+  staPlot.lock();
+  staPlot.setXLabel( "time [s]" );
+  staPlot.setXRange( -0.02, 0.02 );
+  staPlot.unlock();
+  /*
+  yPlot.lock();
+  yPlot.setYLabel( "y-Position [mm]" );
+  yPlot.setXRange( Plot::AutoScale, Plot::AutoScale );
+  yPlot.setXLabel( "Firing rate [Hz]" );
+  yPlot.setLMarg( 6 );
+  yPlot.setRMarg( 1 );
+  yPlot.setTMarg( 3 );
+  yPlot.setBMarg( 4 );
+  yPlot.unlock();
+  */
+
   vb->addWidget( &stimPlot );
   vb->addWidget( &spikesPlot );
   hb->addLayout( vb );
@@ -123,7 +140,29 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   spikesPlot.draw();
   spikesPlot.unlock();
 
+  SampleDataD sta( int((tmax - tmin) * samplerate), tmin, 1.0/samplerate, 0.0);
+  SampleDataD temp(sta);
+  int count = 0;
+  for ( int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
+    double x = myspikes[currentRepeat][i];
+    if (x - std::abs(tmin) < 0.0 || x + tmax > duration) {
+      continue;
+    }
+    stimCopy.copy(x - std::abs(tmin), x + tmax, temp);
+    sta += temp;
+    count++;
+  }
+  sta /= count;
+  sta.setOffset(tmin);
+  staPlot.lock();
+  staPlot.clear();
+  staPlot.plot( sta, 1.0, Plot::Green, 2. );
+  staPlot.setXRange( tmin, tmax );
+  staPlot.setAutoScaleY();
+  staPlot.draw();
+  staPlot.unlock();
 }
+
 
 int SpikeTriggeredAverage::main( void )
 {

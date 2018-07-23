@@ -61,6 +61,7 @@ public:
   Plot spikesPlot;
   Plot staPlot;
   SampleDataD stimCopy;
+  SampleDataD sta;
   double startTime, duration, samplerate;
   double tmin, tmax;
   bool plotPsth;
