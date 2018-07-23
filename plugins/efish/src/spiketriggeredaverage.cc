@@ -40,6 +40,34 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   addNumber( "tmin", "Time before the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
   addNumber( "tmax", "Time after the spike time", 0.02, 0.001, 0.15, 0.001, "s", "ms" );
   addBoolean( "reconstruct", "Do the stimulus reconstruction", false );
+  QVBoxLayout *vb = new QVBoxLayout;
+  QHBoxLayout *hb = new QHBoxLayout;
+  stimPlot.lock();
+  stimPlot.setXLabel( "time [s]" );
+  stimPlot.setYRange( -2.0, 2.0 );
+  stimPlot.setXRange( 0., 1.0 );
+  stimPlot.setYLabel( "voltage [mV]" );
+  stimPlot.setLMarg( 6 );
+  stimPlot.setRMarg( 1 );
+  stimPlot.setTMarg( 3 );
+  stimPlot.setBMarg( 4 );
+  stimPlot.unlock();
+
+  spikesPlot.lock();
+  spikesPlot.setXLabel( "time [s]" );
+  spikesPlot.setYRange( 0., 1.5 );
+  spikesPlot.setXRange( 0., 1.0 );
+  spikesPlot.setYLabel( "trials" );
+  spikesPlot.setLMarg( 6 );
+  spikesPlot.setRMarg( 1 );
+  spikesPlot.setTMarg( 3 );
+  spikesPlot.setBMarg( 4 );
+  spikesPlot.unlock();
+  vb->addWidget( &stimPlot );
+  vb->addWidget( &spikesPlot );
+  hb->addLayout( vb );
+  hb->addWidget( &staPlot );
+  setLayout( hb );
 }
 
 

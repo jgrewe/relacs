@@ -26,6 +26,7 @@
 #include <relacs/ephys/traces.h>
 #include <relacs/efield/traces.h>
 #include <relacs/efield/eodtools.h>
+#include <relacs/plot.h>
 
 using namespace relacs;
 
@@ -57,6 +58,9 @@ public:
  private:
   EventList spikeTimes;
 
+  Plot stimPlot;
+  Plot spikesPlot;
+  Plot staPlot;
 };
 
 
