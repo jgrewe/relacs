@@ -132,11 +132,15 @@ int SpikeTriggeredAverage::main( void )
   double pause = number( "pause" );
   double cutoff = number( "cutoff" );
   double contrast = number( "contrast" );
-  double tmax = number( "tmax" );
-  double tmin = number( "tmin" );
-  double samplerate = number( "samplerate" );
+  tmax = number( "tmax" );
+  tmin = number( "tmin" );
+  samplerate = number( "samplerate" );
   double eod = eodAmplitude( trace( LocalEODTrace[0] ),
                              currentTime() - 0.2, currentTime() );
+  plotPsth = boolean( "psth" );
+  psthIndex = -1;
+  if ( plotPsth )
+    kernel = GaussKernel( number( "kernel" ) );
 
   EventList spikes( count );
   OutData stimulus;

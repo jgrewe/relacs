@@ -60,7 +60,8 @@ public:
   Plot stimPlot;
   Plot spikesPlot;
   Plot staPlot;
-  double startTime, duration;
+  double startTime, duration, samplerate;
+  double tmin, tmax;
   bool plotPsth;
   int psthIndex = -1;
   GaussKernel kernel;
