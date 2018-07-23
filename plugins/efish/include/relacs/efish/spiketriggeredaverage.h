@@ -61,6 +61,8 @@ public:
   Plot spikesPlot;
   Plot staPlot;
   double startTime, duration;
+  bool plotPsth;
+  int psthIndex = -1;
   GaussKernel kernel;
   void plotStimulus( const OutData &stimulus );
   void analyze( EventList &spikes, int currentRepeat );

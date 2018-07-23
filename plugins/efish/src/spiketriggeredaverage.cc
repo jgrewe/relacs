@@ -63,9 +63,9 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
 
   spikesPlot.lock();
   spikesPlot.setXLabel( "time [s]" );
-  spikesPlot.setYRange( 0., 1.5 );
+  spikesPlot.setY2Range( 0., 1.5 );
   spikesPlot.setXRange( 0., 1.0 );
-  spikesPlot.setYLabel( "trials" );
+  spikesPlot.setY2Label( "trials" );
   spikesPlot.setLMarg( 6 );
   spikesPlot.setRMarg( 1 );
   spikesPlot.setTMarg( 3 );
@@ -88,9 +88,6 @@ void SpikeTriggeredAverage::plotStimulus(const OutData &stimulus) {
 }
 
 void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
-  //vector< vector < ArrayD > > eodspikes;
-  //eodspikes.resize( MaxTraces );
-  //vector< SampleDataD > isih;
   int spikes_trace = 0;
   for ( int k=0; k<MaxTraces; k++ ) {
     if ( SpikeEvents[k] >= 0 ) {
@@ -100,41 +97,31 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   }
 
   const EventData &spikeEvents = events( SpikeEvents[spikes_trace] );
-  vector< SampleDataD > spikerate;
-  vector< int > trials;
+  SampleDataD firingRate( int(duration * samplerate), 0.0, 1.0/samplerate );
+  SampleDataD rateSd( firingRate );
   EventData sp( spikeEvents, startTime, startTime+duration, startTime );
   myspikes[currentRepeat].clear();
   myspikes[currentRepeat].append( spikeEvents, startTime, startTime+duration, startTime );
   spikesPlot.lock();
-  spikesPlot.setYRange( 0.0, double(currentRepeat + 1.25) );
+  spikesPlot.setY2Range( 0.0, double(currentRepeat + 1.25) );
   for (int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
     double x = myspikes[currentRepeat][i];
-    spikesPlot.plotPoint(x, Plot::First, double( currentRepeat + 1 ), Plot::First, 0,
-                         Plot::StrokeVertical, 0.5, Plot::FirstY, Plot::Red, Plot::Red);
+    spikesPlot.plotPoint(x, Plot::SecondX, double( currentRepeat + 1 ), Plot::SecondY, 0,
+                         Plot::StrokeVertical, 0.5, Plot::SecondY, Plot::Red, Plot::Red);
+  }
+  if ( plotPsth ) {
+    if ( psthIndex >= 0 )
+      spikesPlot.clearData( psthIndex );
+    else {
+      spikesPlot.setYLabel("firing rate [Hz]");
+    }
+    spikesPlot.setAutoScaleY();
+    myspikes.rate( firingRate, rateSd, kernel );
+    Plot::LineStyle l( Plot::Yellow );
+    psthIndex = spikesPlot.plot( firingRate, 1.0, Plot::Green, 1 );
   }
   spikesPlot.draw();
   spikesPlot.unlock();
-    /*    spikes[k].clear();
-    //eodspikes[k].clear();
-    trials.push_back( 0 );
-    if ( SpikeEvents[k] >= 0 ) {
-      // isih.push_back( SampleDataD( 0.0, 2.0*isimax, isistep, 0.0 ) );
-      // spikerate.push_back( SampleDataD( 0.0, ratetmax, ratedeltat, 0.0 ) );
-      if ( Repeats <= 0 ) {
-	spikes[k].reserve( int( Duration * 1000.0 ) );
-	eodspikes[k].reserve( int( Duration * 1000.0 ) );
-      }
-      else {
-	spikes[k].reserve( int( Duration * Repeats * 1000.0 ) );
-	eodspikes[k].reserve( int( Duration * Repeats * 1000.0 ) );
-      }
-    }
-    else {
-      isih.push_back( SampleDataD() );
-      spikerate.push_back( SampleDataD() );
-    }
-    */
-
 
 }
 
