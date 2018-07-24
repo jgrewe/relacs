@@ -36,9 +36,24 @@ namespace efish {
 
 /*!
 \class SpikeTriggeredAverage
-\brief [RePro] Record a spike triggered average using white noise stimuli.
+\brief [RePro] Record the spike triggered average using frozen white noise.
 \author Jan Grewe
 \version 1.0 (Jul 17, 2018)
+\par Options
+- \c Stimulation
+    - \c name="": The name used during storing of the data (\c string)
+    - \c duration=1seconds: Signal duration (\c number)
+    - \c cutoff=150hertz: Upper cutoff frequency of the stimulus (\c number)
+    - \c contrast=10percent: the intensity of the stimulus relative to EOD amplitude (\c number)
+    - \c samplerate=1000Hertz: temporal resolution of the stimulus (\c number)
+    - \c count=5: number of stimulus repetitions (\c number)
+    - \c pause=0.2s: duration of the pause between stimulus presenstations (\c number)
+- \c Analysis
+    - \c tmin=-0.02s: minimum time before the spike to use for the sta (\c number)
+    - \c tmax=0.02s: maximum time after the spike to use for the sta (\c number)
+    - \c reconstruct=false: defines whether or not a reverse reconstruction of the stimulus is done (\c boolean)
+    - \c psth=false: defines whether the firing rate is calculated and plotted (\c boolean)
+    - \c kernel=0.001s: width of the Gaussian kernel used for firing rate calculation (\c number)
 */
 
 

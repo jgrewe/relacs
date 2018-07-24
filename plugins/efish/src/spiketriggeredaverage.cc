@@ -28,7 +28,8 @@ namespace efish {
 SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   : RePro( "SpikeTriggeredAverage", "efish", "Jan Grewe", "1.0", "Jul 17, 2018" )
 {
-  newSection( "Stimulus" );
+  newSection( "Stimulation" );
+  addText( "name", "Name/role of the repro", "" );
   addNumber( "duration", "Stimulus duration", 1.0, 0.001, 100000.0, 0.001, "s", "ms" );
   addNumber( "cutoff", "Cutoff frequency of noise stimulus", 150.0, 1.0, 2000.0, 1.0, "Hz" );
   addNumber( "contrast", "Contrast of the stimulus, i.e. stimulus intensity", 10.0, 0.1, 100.0, .1, "%");
@@ -49,7 +50,7 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
 
   startTime = 0.0;
   duration = 0.0;
-  
+
   stimPlot.lock();
   stimPlot.setXLabel( "time [s]" );
   stimPlot.setYRange( -2.0, 2.0 );
@@ -76,17 +77,6 @@ SpikeTriggeredAverage::SpikeTriggeredAverage( void )
   staPlot.setXLabel( "time [s]" );
   staPlot.setXRange( -0.02, 0.02 );
   staPlot.unlock();
-  /*
-  yPlot.lock();
-  yPlot.setYLabel( "y-Position [mm]" );
-  yPlot.setXRange( Plot::AutoScale, Plot::AutoScale );
-  yPlot.setXLabel( "Firing rate [Hz]" );
-  yPlot.setLMarg( 6 );
-  yPlot.setRMarg( 1 );
-  yPlot.setTMarg( 3 );
-  yPlot.setBMarg( 4 );
-  yPlot.unlock();
-  */
 
   vb->addWidget( &stimPlot );
   vb->addWidget( &spikesPlot );
