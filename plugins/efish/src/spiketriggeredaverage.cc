@@ -140,8 +140,8 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   spikesPlot.draw();
   spikesPlot.unlock();
 
-  SampleDataD sta( int((tmax - tmin) * samplerate), tmin, 1.0/samplerate, 0.0);
   SampleDataD temp(sta);
+  SampleDataD tempSta(sta);
   int count = 0;
   for ( int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
     double x = myspikes[currentRepeat][i];
@@ -149,10 +149,15 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
       continue;
     }
     stimCopy.copy(x - std::abs(tmin), x + tmax, temp);
-    sta += temp;
+    tempSta += temp;
     count++;
   }
-  sta /= count;
+  tempSta /= count;
+  if ( currentRepeat == 0 )
+    sta = tempSta;
+  else
+    sta += (sta - tempSta)/(currentRepeat+1);
+
   sta.setOffset(tmin);
   staPlot.lock();
   staPlot.clear();
@@ -195,6 +200,8 @@ int SpikeTriggeredAverage::main( void )
   plotStimulus( stimulus );
   spikesPlot.clear();
   staPlot.clear();
+  SampleDataD sta( int((tmax - tmin) * samplerate), tmin, 1.0/samplerate, 0.0);
+
   for (int i = 0; i < count; ++i ) {
     startTime = currentTime();
     write( stimulus );
