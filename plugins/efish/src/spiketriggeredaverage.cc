@@ -166,6 +166,32 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   staPlot.setAutoScaleY();
   staPlot.draw();
   staPlot.unlock();
+
+  if ( reconstruct ) {
+    for (int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
+      double x = myspikes[currentRepeat][i];
+      if ( reconstruct ) {
+        spikeIndex = stimCopy.index( x );
+        firstIndex = stimCopy.index( x - std::abs( tmin ) );
+        lastIndex = stimCopy.index( x + tmax );
+        if ( firstIndex >= 0  && lastIndex < stimCopy.size() ){
+          for ( int index = 0; index < sta.size(); ++index ){
+            revRec[firstIndex + index] += sta[index];
+          }
+        }
+      }
+    }
+    if ( currentRepeat == 0 )
+      stimReconstruct = revRec;
+    else
+      stimReconstruct += ( revRec - stimReconstruct )/( currentRepeat + 1);
+    stimPlot.lock();
+    if ( reconstructionIndex >= 0 )
+      stimPlot.clearData( reconstructionIndex );
+    reconstructionIndex = stimPlot.plot( stimReconstruct, 1.0, Plot::Red, 1 );
+    stimPlot.draw();
+    stimPlot.unlock();
+  }
 }
 
 
@@ -182,7 +208,9 @@ int SpikeTriggeredAverage::main( void )
   double eod = eodAmplitude( trace( LocalEODTrace[0] ),
                              currentTime() - 0.2, currentTime() );
   plotPsth = boolean( "psth" );
+  reconstruct = boolean( "reconstruct" );
   psthIndex = -1;
+  reconstructionIndex = -1;
   if ( plotPsth )
     kernel = GaussKernel( number( "kernel" ) );
 
@@ -191,13 +219,15 @@ int SpikeTriggeredAverage::main( void )
   stimulus.setTrace( GlobalAMEField );
   stimulus.setStepsize( 1.0/samplerate );
   stimulus.bandNoiseWave( duration, stimulus.stepsize(), 0.0, cutoff, contrast/100.0 );
-  stimulus.setIntensity(1.0);
+  stimulus.setIntensity(1.0);  // FIXME amplitude is independent of Fish, so far
   stimCopy.resize( stimulus.size(), 0.0 );
   for ( int i = 0; i < stimulus.size(); ++i ) {
     stimCopy[i] = stimulus[i];
   }
   stimCopy.setStepsize( stimulus.stepsize() );
+  stimReconstruct.resize( stimulus.size(), 0.0, stimulus.stepsize() );
   plotStimulus( stimulus );
+
   spikesPlot.clear();
   staPlot.clear();
   SampleDataD sta( int((tmax - tmin) * samplerate), tmin, 1.0/samplerate, 0.0);
@@ -213,7 +243,7 @@ int SpikeTriggeredAverage::main( void )
       return Failed;
     }
     analyze( spikes, i );
-    sleep( pause ); 
+    sleep( pause );
   }
   return Completed;
 }

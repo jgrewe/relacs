@@ -60,12 +60,12 @@ public:
   Plot stimPlot;
   Plot spikesPlot;
   Plot staPlot;
-  SampleDataD stimCopy;
+  SampleDataD stimCopy, stimReconstruct;
   SampleDataD sta;
   double startTime, duration, samplerate;
   double tmin, tmax;
-  bool plotPsth;
-  int psthIndex = -1;
+  bool plotPsth, reconstruct;
+  int psthIndex = -1, reconstructionIndex = -1;
   GaussKernel kernel;
   void plotStimulus( const OutData &stimulus );
   void analyze( EventList &spikes, int currentRepeat );
