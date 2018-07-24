@@ -117,6 +117,11 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   SampleDataD firingRate( int(duration * samplerate), 0.0, 1.0/samplerate );
   SampleDataD rateSd( firingRate );
   EventData sp( spikeEvents, startTime, startTime+duration, startTime );
+  SampleDataD temp(sta);
+  SampleDataD tempSta(sta);
+  int count = 0, firstIndex = 0, lastIndex = 0, spikeIndex =0;
+  SampleDataD revRec( stimCopy.size(), 0.0, stimCopy.stepsize(), 0.0 );
+
   myspikes[currentRepeat].clear();
   myspikes[currentRepeat].append( spikeEvents, startTime, startTime+duration, startTime );
   spikesPlot.lock();
@@ -125,7 +130,21 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
     double x = myspikes[currentRepeat][i];
     spikesPlot.plotPoint(x, Plot::SecondX, double( currentRepeat + 1 ), Plot::SecondY, 0,
                          Plot::StrokeVertical, 0.5, Plot::SecondY, Plot::Red, Plot::Red);
+    // sta estimation
+    if (x - std::abs(tmin) >= 0.0 && x + tmax <= duration) {
+      stimCopy.copy(x - std::abs(tmin), x + tmax, temp);
+      tempSta += temp;
+      count++;
+    }
   }
+  tempSta /= count;
+  if ( currentRepeat == 0 ) {
+    sta = tempSta;
+  } else {
+    sta += ( tempSta - sta )/( currentRepeat + 1 );
+  }
+  sta.setOffset(tmin);
+
   if ( plotPsth ) {
     if ( psthIndex >= 0 )
       spikesPlot.clearData( psthIndex );
@@ -140,25 +159,6 @@ void SpikeTriggeredAverage::analyze( EventList &myspikes, int currentRepeat ) {
   spikesPlot.draw();
   spikesPlot.unlock();
 
-  SampleDataD temp(sta);
-  SampleDataD tempSta(sta);
-  int count = 0;
-  for ( int i = 0; i < myspikes[currentRepeat].size(); ++i ) {
-    double x = myspikes[currentRepeat][i];
-    if (x - std::abs(tmin) < 0.0 || x + tmax > duration) {
-      continue;
-    }
-    stimCopy.copy(x - std::abs(tmin), x + tmax, temp);
-    tempSta += temp;
-    count++;
-  }
-  tempSta /= count;
-  if ( currentRepeat == 0 )
-    sta = tempSta;
-  else
-    sta += (sta - tempSta)/(currentRepeat+1);
-
-  sta.setOffset(tmin);
   staPlot.lock();
   staPlot.clear();
   staPlot.plot( sta, 1.0, Plot::Green, 2. );
