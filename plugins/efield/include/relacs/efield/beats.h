@@ -42,6 +42,7 @@ namespace efield {
 \version 2.6 (Nov 4, 2016)
 \par Options
 - \c Stimulation
+    - \c name="": The name used during storing of the data (\c string)
     - \c duration=10seconds: Signal duration (\c number)
     - \c pause=20seconds: Pause between signals (\c number)
     - \c ramp=0.5seconds: Duration of linear ramp (\c number)
