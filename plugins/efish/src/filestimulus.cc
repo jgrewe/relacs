@@ -53,6 +53,8 @@ FileStimulus::FileStimulus( void )
   NoiseType = "White";
 
   // add some parameter as options:
+  newSection( "General" );
+  addText( "name", "Prefix used to identify the repro run, auto-generated if empty", "" );
   newSection( "Stimulus" );
   addText( "file", "Stimulus file", "" ).setStyle( OptWidget::BrowseExisting );
   addNumber( "sigstdev", "Standard deviation of signal", SigStdev, 0.01, 1.0, 0.05 );
@@ -142,6 +144,7 @@ FileStimulus::FileStimulus( void )
 int FileStimulus::main( void )
 {
   // get options:
+  Str name = text( "name" );
   Str file = text( "file" );
   SigStdev = number( "sigstdev" );
   Duration = number( "duration" );
@@ -353,21 +356,21 @@ int FileStimulus::main( void )
   signal.setTrace( AM ? GlobalAMEField : GlobalEField );
   signal.setStartSource( 1 );
   signal.setDelay( Before );
-  signal.setIdent( filename );
+  signal.setIdent( name.size() > 0 ? name : filename );
   Duration = signal.duration();
   restoreMouseCursor();
 
   // data:
   Intensity = 0.0;
   if ( UseContrast )
-    EODTransAmpl.reserve( Repeats>0 ? Repeats : 100 );
+    EODTransAmpl.reserve( Repeats > 0 ? Repeats : 100 );
   else
-    EFieldAmpl.reserve( Repeats>0 ? Repeats : 100 );
+    EFieldAmpl.reserve( Repeats > 0 ? Repeats : 100 );
 
   for ( int k=0; k<MaxTraces; k++ ) {
     if ( SpikeEvents[k] >= 0 ) {
       Spikes[k].clear();
-      Spikes[k].reserve( Repeats>0 ? Repeats : 100 );
+      Spikes[k].reserve( Repeats > 0 ? Repeats : 100 );
       Trials[k] = 0;
       SpikeRate[k] = SampleDataD( -Before, Duration+After, RateDeltaT );
       SpikeFrequency[k] = SampleDataD( -Before, Duration+After, RateDeltaT );
@@ -376,9 +379,9 @@ int FileStimulus::main( void )
     }
   }
   if ( NerveTraces > 0 ) {
-    NerveAmplP.reserve( Repeats>0 ? Repeats : 500 );
-    NerveAmplT.reserve( Repeats>0 ? Repeats : 500 );
-    NerveAmplM.reserve( Repeats>0 ? Repeats : 500 );
+    NerveAmplP.reserve( Repeats > 0 ? Repeats : 500 );
+    NerveAmplT.reserve( Repeats > 0 ? Repeats : 500 );
+    NerveAmplM.reserve( Repeats > 0 ? Repeats : 500 );
     NerveMeanAmplP = SampleDataD( -Before, Duration+After, 0.001 );
     NerveMeanAmplT = SampleDataD( -Before, Duration+After, 0.001 );
     NerveMeanAmplM = SampleDataD( -Before, Duration+After, 0.001 );
@@ -428,7 +431,7 @@ int FileStimulus::main( void )
   }
   directWrite( sigs );
   sleep( 0.01 );
-  
+
   // central loop over Repeats!
   for ( Count = 0;
 	( Repeats <= 0 || Count < Repeats ) && softStop() == 0;
