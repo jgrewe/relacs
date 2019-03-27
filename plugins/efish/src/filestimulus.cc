@@ -476,7 +476,7 @@ int FileStimulus::main( void )
       noise.clear();
     }
     int c = ::relacs::clip( -1.0, 1.0, noisesignal );
-    printlog( "clipped " + Str( c ) + " from " + Str( noisesignal.size() ) + " data points.\n" );
+    printlog( "clipped " + Str( c ) + " out of " + Str( noisesignal.size() ) + " data points.\n" );
     noisesignal.back() = 0.0;
 
     // message: 
@@ -490,6 +490,21 @@ int FileStimulus::main( void )
     s += "  Loop: <b>" + Str( Count+1 ) + "</b>";
     message( s );
 
+    // prepare mutable metadata
+    if ( UseContrast ) {
+      if ( !noisesignal.description().exist( "StimContrast" ) )
+        noisesignal.description().addNumber( "StimContrast", Contrast, unit( "contrast" ) );
+      else
+        noisesignal.description().setNumber( "StimContrast", Contrast );
+      noisesignal.description()["StimContrast"].addFlags( OutData::Mutable );
+    } else {
+      if ( !noisesignal.description().exist( "StimAmplitude" ) )
+        noisesignal.description().addNumber( "StimAmplitude", Amplitude, unit( "amplitude" ) );
+      else
+        noisesignal.description().setNumber( "StimAmplitude", Amplitude );
+      noisesignal.description()["StimAmplitude"].addFlags( OutData::Mutable );
+    }
+
     // put out the signal:
     write( noisesignal );
     if ( !noisesignal.success() ) {
@@ -499,7 +514,7 @@ int FileStimulus::main( void )
       stop();
       return Failed;
     }
-    
+
     sleep( Pause );
     if ( interrupt() ) {
       save();
@@ -555,7 +570,6 @@ int FileStimulus::main( void )
       adjustGain( trace( GlobalEFieldTrace ),
 		  1.05 * trace( GlobalEFieldTrace ).maxAbs( signalTime(),
 							    signalTime() + Duration ) );
-    
     // analyze:
     analyze();
     plot();
