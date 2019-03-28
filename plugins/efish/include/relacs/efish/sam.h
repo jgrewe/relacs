@@ -128,6 +128,7 @@ private:
   int createSignal( const InData &data, const EventData &events );
 
   // parameter:
+  string Name;
   int ReadCycles;
   double Duration;
   double Pause;
