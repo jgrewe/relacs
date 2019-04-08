@@ -33,32 +33,36 @@ namespace efish {
 ReceptiveField::ReceptiveField( void )
   : RePro( "ReceptiveField", "efish", "Jan Grewe", "1.0", "Dec 12, 2017" )
 {
-  newSection( "Quick Search" );
+  newSection( "2D search" );
+  addText( "name" , "Prefix used to identify the repro run, auto-generated if empty", "" );
+
   addNumber( "xmin", "Minimum x position", 0.0, -1000., 1000., 0.1, "mm" );
   addNumber( "xmax", "Maximum x position", 0.0, -1000., 1000., 0.1, "mm" );
-  addNumber( "xstep", "Desired step size of the x-grid", 1.0, 0.1, 1000., 0.1, "mm" );
+  addNumber( "xspeed", "Speed along the fish's x-direction", 10.0, 0.1, 250., 0.1, "mm/s" );
 
   addNumber( "ymin", "Minimum y position", 0.0, -1000., 1000., 0.1, "mm" );
   addNumber( "ymax", "Maximum y position", 0.0, -1000., 1000., 0.1, "mm" );
-  addNumber( "ystep", "Desired step size of the y-grid", 1.0, 0.1, 1000., 0.1, "mm" );
-  addNumber( "ystart", "Starting y-position for the xrange search", 0.0, -1000., 1000., 0.1, "mm");
+  addNumber( "yspeed", "Speed along the fish's y-direction", 10.0, 0.1, 250., 0.1, "mm/s");
 
-  addNumber( "zmin", "Minimum z position", 0.0, -1000., 1000., 0.1, "mm" );
-  addNumber( "zmax", "Maximum z position", 0.0, -1000., 1000., 0.1, "mm" );
-  addNumber( "zstep", "Desired step size of the z-grid", 1.0, 0.1, 1000., 0.1, "mm" );
+  addNumber( "zpos", "Distance from fish.", 5.0, -1000., 1000., 0.1, "mm" );
+
   addBoolean( "followmidline", "Auto-adjust y to follow the fish midline.", true);
+
+  addNumber( "npasses", "Number of back-and-forth passes along each axis", 1, 1, 100, 1);
+  addNumber( "pause", "Pause between stimulus passes", 1.0, 0.001, 1000.0, 0.001, "s", "ms" );
 
   newSection( "Stimulation" );
   addNumber( "deltaf", "Difference frequency of the local stimulus relative to the fish EODf.",
-             50.0, 0.0, 1000., 1., "Hz" );
+             75.0, -1000.0, 1000., 1., "Hz" );
   addNumber( "amplitude", "Amplitude of the local stimulus used for finding the receptive field.",
              0.001, 0.0, 10., .0001, "V", "mV" );
-  addNumber( "duration", "Stimulus duration", 1.0, 0.001, 100000.0, 0.001, "s", "ms" );
-  addNumber( "pause", "Pause between stimulus presentations", 1.0, 0.001, 1000.0, 0.001, "s", "ms" );
-  addNumber( "repeats", "Number of stimulus repeats at each position", 5.0, 1., 100., 1., "");
-  addNumber( "binwidth", "Bin-width used to estimate the firing rate.", 0.01, 0.001, 1.0, 0.001, "s", "ms" );
-  
+
+  newSection( "Analysis" );
+  addNumber( "nfft", "Number of data points used for the estimation of the power spectrum", 1024, 256, 65536, 1);
+  addNumber( "nshift", "Number of data points by which segments are shifted", 1024, 256, 65536, 1);
+
   newSection( "Robot setup" );
+  addText( "robotdev", "The robot device", "robot-2" );
   addSelection( "xmapping", "Mapping of x-axis to robot axis", "y|z|x" );
   addBoolean( "xinvert", "Select to map 0 position in relacs to max position of the robot.", true);
   addSelection( "ymapping", "Mapping of y-axis to robot axis", "z|x|y");
@@ -69,7 +73,7 @@ ReceptiveField::ReceptiveField( void )
   addNumber( "safex", "Safe x position (robot coords) into which the robot is reset", 350.0, 0.0, 600.,  1.0, "mm" );
   addNumber( "safey", "Safe y position (robot coords) into which the robot is reset", 0.0, 0.0, 450.,  1.0, "mm" );
   addNumber( "safez", "Safe z position (robot coords) into which the robot is reset", 0.0, 0.0, 400.,  1.0, "mm" );
-  
+
   QVBoxLayout *vb = new QVBoxLayout;
   QHBoxLayout *hb = new QHBoxLayout;
 
@@ -86,7 +90,7 @@ ReceptiveField::ReceptiveField( void )
   xPlot.lock();
   xPlot.setXLabel( "x-Position [mm]" );
   xPlot.setAutoScaleY();
-  xPlot.setYLabel( "Firing rate [Hz]" );
+  xPlot.setYLabel( "Power [Hz]" );
   xPlot.setLMarg( 6 );
   xPlot.setRMarg( 1 );
   xPlot.setTMarg( 3 );
@@ -96,7 +100,7 @@ ReceptiveField::ReceptiveField( void )
   yPlot.lock();
   yPlot.setYLabel( "y-Position [mm]" );
   yPlot.setXRange( Plot::AutoScale, Plot::AutoScale );
-  yPlot.setXLabel( "Firing rate [Hz]" );
+  yPlot.setXLabel( "Power [Hz]" );
   yPlot.setLMarg( 6 );
   yPlot.setRMarg( 1 );
   yPlot.setTMarg( 3 );
@@ -199,7 +203,7 @@ double ReceptiveField::getYSlope( void ) {
   return slope;
 }
 
-
+/*
 bool ReceptiveField::rangeSearch( LinearRange &range, double xy_pos, double z_pos,
                                   std::vector<double> &avg_rates, OutData &signal,
 				  bool x_search, bool adjust_y, bool simulation ) {
@@ -259,8 +263,8 @@ bool ReceptiveField::rangeSearch( LinearRange &range, double xy_pos, double z_po
   }
   return true;
 }
-
-
+*/
+/*
 int ReceptiveField::presentStimulus(double x_pos, double y_pos, double z_pos, int repeat, OutData &signal) {
   Str m = "x: <b>" + Str( x_pos, 0, 0, 'f' ) + "mm</b>";
   m += "  y: <b>" + Str( y_pos ,0, 0, 'f' ) + "mm</b>";
@@ -284,7 +288,7 @@ int ReceptiveField::presentStimulus(double x_pos, double y_pos, double z_pos, in
   }
   return 0;
 }
-
+*/
 
 void ReceptiveField::getRate( SampleDataD &rate, const EventData &spike_train, int &start_trial,
               double period, double duration ) {
@@ -297,7 +301,7 @@ void ReceptiveField::getRate( SampleDataD &rate, const EventData &spike_train, i
 void ReceptiveField::getSpikes( EventList & spike_trains ) {
   for ( int k=0; k<MaxTraces; k++ ) {
     if ( SpikeEvents[k] >= 0 ) {
-      spike_trains.push( events( SpikeEvents[k] ), signalTime(), signalTime() + duration );
+      spike_trains.push( events( SpikeEvents[k] ), signalTime(), signalTime() + this->duration );
       break;
     }
   }
@@ -307,9 +311,9 @@ void ReceptiveField::getSpikes( EventList & spike_trains ) {
 void ReceptiveField::analyze( const EventList &spike_trains ) {
   SampleDataD avgRate();
   for ( int i=0; i<spike_trains.size(); i++ ) {
-    
+
   }
- }
+}
 
 
 void plotBestX(Plot &p, double x) {
@@ -328,20 +332,21 @@ void plotBestY(Plot &p, double y) {
 }
 
 
-void ReceptiveField::prepareStimulus( OutData &signal ) {
+void ReceptiveField::prepareStimulus( OutData &signal, double min, double max, double speed ) {
   double eodf = events( LocalEODEvents[0] ).frequency( currentTime() - 0.5, currentTime() );
-  signal.setTrace( LocalEField[0] ); //FIXME: will need to be switched to LocalEField[0]
-  signal.sineWave( this->duration, 0.0, eodf + this->deltaf );
+  signal.setTrace( LocalEField[0] );
+  this->duration = (max + min ) / speed;
+
+  signal.sineWave( duration, 0.0, eodf + this->deltaf );
   signal.setIntensity( this->amplitude );
 
   Options opts;
-  Parameter &p1 = opts.addNumber( "dur", this->duration, "s" );
+  Parameter &p1 = opts.addNumber( "dur", duration, "s" );
   Parameter &p2 = opts.addNumber( "ampl", this->amplitude, "V" );
   Parameter &p3 = opts.addNumber( "deltaf", this->deltaf, "Hz" );
   Parameter &p4 = opts.addNumber( "freq", eodf + this->deltaf, "Hz" );
-  Parameter &p5 = opts.addNumber( "x_pos", 0.0, "mm" );
-  Parameter &p6 = opts.addNumber( "y_pos", 0.0, "mm" );
-  Parameter &p7 = opts.addNumber( "z_pos", 0.0, "mm" );
+  Parameter &p5 = opts.addNumber( "direction", 0, "" );
+  Parameter &p6 = opts.addText( "scantype", "" );
 
   signal.setMutable( p1 );
   signal.setMutable( p2 );
@@ -349,12 +354,11 @@ void ReceptiveField::prepareStimulus( OutData &signal ) {
   signal.setMutable( p4 );
   signal.setMutable( p5 );
   signal.setMutable( p6 );
-  signal.setMutable( p7 );
   signal.setDescription( opts );
 }
 
 
-int map_axis( const string &s ){
+int map_axis( const string &s ) {
   vector<string> axes = {"x", "y", "z"};
   for ( int i = 0; i < (int)axes.size(); i++ ) {
     if ( axes[i].compare(s) == 0 )
@@ -363,131 +367,155 @@ int map_axis( const string &s ){
   return -1;
 }
 
+Point ReceptiveField::convertToRobotCoords( const Point &fish_point ) {
+  Point destination( this->fish_head );
+  for (size_t i = 0; i < this->axis_map.size(); i++ ) {
+    destination[this->axis_map[i]] +=  this->axis_invert[i] * fish_point[i];
+  }
+  return destination;
+}
 
-int ReceptiveField::main( void )
-{
-  // grid settings
+int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, double speed ) {
+ EventList spike_trains;
+
+ for ( int k = 0; k < this->npasses; ++k ) {
+    if ( !interrupt() ) {
+      sleep( this->pause );
+      signal.description().setNumber("speed", speed);
+      signal.description().setNumber("direction", 1);
+      this->robot->go_to_point( end_pos, speed );
+      write(signal);
+      robot->wait();
+    }
+    getSpikes( spike_trains );
+    analyze( spike_trains );
+    if ( !interrupt() ) {
+      sleep( pause );
+      signal.description().setNumber("speed", speed);
+      signal.description().setNumber("direction", -1);
+      this->robot->go_to_point( start_pos, speed );
+      write( signal );
+      this->robot->wait();
+      getSpikes( spike_trains );
+      analyze( spike_trains );
+    }
+  }
+  if ( interrupt() ) {
+    robot->PF_up_and_over( safe_pos );
+    robot->wait();
+    return Failed;
+  }
+  return Completed;
+}
+
+int ReceptiveField::xScan( OutData &signal ) {
   double xmin = number( "xmin" );
   double xmax = number( "xmax" );
+  double ystart = 0.0;
+  double zpos = number( "zpos" );
+  double xspeed = number( "xspeed" );
+
+  prepareStimulus( signal, xmin, xmax, xspeed );
+
+  double ycorrector = this->y_slope * ( xmax - xmin );
+  Point fish_start_pos( xmin, ystart, zpos );
+  Point fish_end_pos( xmax, ystart + ycorrector, zpos );
+
+  Point robot_start_pos = convertToRobotCoords( fish_start_pos );
+  Point robot_end_pos = convertToRobotCoords( fish_end_pos );
+  this->robot->go_to_point( robot_start_pos, xspeed );
+  this->robot->wait();
+
+  signal.description().setText( "scantype", "xscan" );
+  return scan( signal, robot_start_pos, robot_end_pos, xspeed );
+}
+
+int ReceptiveField::yScan( OutData &signal ) {
   double ymin = number( "ymin" );
   double ymax = number( "ymax" );
-  double zmin = number( "zmin" );
-  double zmax = number( "zmax" );
+  double yspeed = number( "yspeed" );
+  double zpos = number( "zpos" );
 
-  double xstep = number( "xstep" );
-  double ystep = number( "ystep" );
-  double zstep = number( "zstep" );
+  prepareStimulus( signal, ymin, ymax, yspeed );
 
-  double ystart = number( "ystart" );
-  double z_pos = number( "zstart" );
+  Point fish_start_pos( this->best_x, ymin, zpos );
+  Point fish_end_pos( this->best_x, ymax, zpos );
 
-  double safex = number( "safex" );
-  double safey = number( "safey" );
-  double safez = number( "safez" );
-  bool adjust_y = boolean( "followmidline" );
+  Point robot_start_pos = convertToRobotCoords( fish_start_pos );
+  Point robot_end_pos = convertToRobotCoords( fish_end_pos );
+  this->robot->go_to_point( robot_start_pos, yspeed );
+  this->robot->wait();
 
-  // Stimulus settings
-  this->amplitude = number( "amplitude" );
-  this->repeats = number( "repeats" );
-  this->duration = number( "duration" );
-  this->deltaf = number( "deltaf" );
-  this->pause = number( "pause" );
-  this->binwidth = number( "binwidth" );
+  signal.description().setText( "scantype", "yscan" );
+  return scan( signal, robot_start_pos, robot_end_pos, yspeed );
+}
 
-  robot = dynamic_cast<misc::XYZRobot*>( device( "robot-2" ) );
-  if ( robot == 0 ) {
+
+int ReceptiveField::setupRobot( ) {
+   string robot_device = text( "robotdev" );
+   this->robot = dynamic_cast<misc::XYZRobot*>( device( robot_device ) );
+   if ( this->robot == 0 ) {
     warning( "No Robot! please add 'XYZRobot' to the controlplugins int he config file." );
     return Failed;
   }
-  if ( !robot->isOpen() )
-    robot->start_mirob();
-  if ( robot->stopped() ) {
+  if ( !this->robot->isOpen() )
+    this->robot->start_mirob();
+  if ( this->robot->stopped() ) {
     warning( "Robot can not move or desired point is forbidden!" );
     return Failed;
   }
-  if ( !robot->PF_up_and_over( {safex, safey, safez } ) ) {
+  if ( !this->robot->PF_up_and_over( this->safe_pos ) ) {
     warning( "Robot can not move or desired point is forbidden!" );
     return Failed;
   }
-  robot->wait();
+  this->robot->wait();
   if ( interrupt() ) {
-    robot->PF_up_and_over( {safex, safey, safez } );
-    robot->wait();
-    // robot->PF_up_and_over( {0., 0., 0. } );
-    // robot->wait();
-    //    robot->close_mirob();
+    this->robot->PF_up_and_over( this->safe_pos );
+    this->robot->wait();
     return Aborted;
   }
+  this->axis_map = {0, 1, 2};
+  this->axis_invert = {1, 1, 1};
+  this->axis_map[0] = map_axis( text("xmapping") );
+  this->axis_map[1] = map_axis( text("ymapping") );
+  this->axis_map[2] = map_axis( text("zmapping") );
+  this->axis_invert[0] = boolean("xinvert") ? -1 : 1;
+  this->axis_invert[1] = boolean("yinvert") ? -1 : 1;
+  this->axis_invert[2] = boolean("zinvert") ? -1 : 1;
+}
 
-  fish_head = robot->get_fish_head();
-  fish_tail = robot->get_fish_tail();
+int ReceptiveField::main( void )
+{
+  double safex = number( "safex" );
+  double safey = number( "safey" );
+  double safez = number( "safez" );
+  bool adjusty = boolean( "followmidline" );
+  this->safe_pos = { safex, safey, safez };
 
-  // axis setup
-  axis_map = {0, 1, 2};
-  axis_invert = {1, 1, 1};
-  axis_map[0] = map_axis( text("xmapping") );
-  axis_map[1] = map_axis( text("ymapping") );
-  axis_map[2] = map_axis( text("zmapping") );
-  axis_invert[0] = boolean("xinvert") ? -1 : 1;
-  axis_invert[1] = boolean("yinvert") ? -1 : 1;
-  axis_invert[2] = boolean("zinvert") ? -1 : 1;
+  this->npasses = number( "npasses" );
+  this->duration = number( "duration" );
+  this->deltaf = number( "deltaf" );
+  this->pause = number( "pause" );
+  this->nfft = number( "nfft" );
+  this->nshift= number( "nshift" );
+
+  int err = setupRobot();
+  if ( err > 0 )
+    return err;
+
+  this->fish_head = this->robot->get_fish_head();
+  this->fish_tail = this->robot->get_fish_tail();
+  this->y_slope = 0.0;
+  if ( adjusty ) {
+    this->y_slope = getYSlope();
+  }
 
   OutData signal;
-  prepareStimulus( signal );
+  resetPlots( number( "xmin" ), number( "xmax" ),
+              number( "ymin" ), number( "ymax" ));
+  xScan( signal );
+  yScan( signal );
 
-  resetPlots( xmin, xmax, ymin, ymax );
-
-  LinearRange xrange( xmin, xmax, xstep );
-  LinearRange yrange( ymin, ymax, ystep );
-  LinearRange zrange( zmin, zmax, zstep );
-
-  std::vector<double> avg_rates_x( xrange.size() );
-  std::vector<double> avg_rates_y( yrange.size() );
-
-  moveToPosition( xmin, ystart, z_pos );
-  // robot->PF_up_and_over( fish_head );
-  // robot->wait();
-  for(int i = 0; i < zrange.size(); i ++) {
-    z_pos = zrange[i];
-    for (int j = 0; j < yrange.size(); j++) {
-      ystart = yrange[j];
-      if (!rangeSearch( xrange, ystart, z_pos, avg_rates_x, signal, true , adjust_y, false )) {
-	robot->PF_up_and_over( {safex, safey, safez } );
-	robot->wait();
-	return Failed;
-      }
-    }
-  }
-  /*
-  double bestX, bestY;
-  if ( bestXPos( avg_rates_x, xrange, bestX ) ) {
-    plotBestX( xPlot, bestX );
-    if (!rangeSearch( yrange, bestX, z_pos, avg_rates_y, signal, false, adjust_y, false ) ) {
-      robot->PF_up_and_over( {safex, safey, safez } );
-      robot->wait();
-      return Failed;
-    }
-    if (bestXPos( avg_rates_y, yrange, bestY )) {
-      plotBestY( yPlot, bestY );
-    }
-  }
-  metaData().setNumber("Cell properties>X Position", bestX);
-  metaData().setNumber("Cell properties>Y Position", bestY);
-  double y_correction = 0.0;
-  if ( adjust_y ) {
-    double slope = getYSlope();
-    y_correction = slope * bestX;
-  }
-  moveToPosition( bestX, bestY + y_correction, z_pos );
-  cerr << "Best position x: " << bestX << "\t y:" << (bestY + y_correction) << "\t z:" << z_pos << endl;
-  // TODO record a second of baseline at this point
-  // sleep( 2.0 );
-  // robot->PF_up_and_over( { safex, safey, safez } );
-  // robot->wait();
-  // robot->PF_up_and_over( { 0., 0., 0. } );
-  // robot->wait();
-  // robot->close_mirob();
-  */
   return Completed;
 }
 
