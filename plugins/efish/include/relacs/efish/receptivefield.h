@@ -55,20 +55,27 @@ class ReceptiveField : public RePro,
 
  private:
   Plot xPlot, yPlot, posPlot;
+  Point safe_pos;
   Point fish_head, fish_tail, reset_position;
-  double duration, deltaf, amplitude, pause, binwidth;
-  int repeats;
+  double duration, deltaf, amplitude, pause;
+  double best_x, best_y;
+  double y_slope;
+  int npasses, nfft, nshift;
   misc::XYZRobot *robot = NULL;
-  std::vector<int> axis_map;
-  std::vector<int> axis_invert;
+  std::vector<int> axis_map, axis_invert;
 
+  int setupRobot( );
+  int xScan( OutData &signal );
+  int yScan( OutData &signal );
+  int scan( OutData &signal, Point &start_pos, Point &end_pos, double speed );
+  Point convertToRobotCoords(const Point &fish_point );
   void resetPlots( double xmin, double xmax, double ymin, double ymax );
-  bool rangeSearch( LinearRange &range, double xy_pos, double z_pos,
-                    std::vector<double> &avg_rates, OutData &signal,
-		    bool x_search, bool adjust_y, bool simulation );
-  void prepareStimulus( OutData &signal );
-  int presentStimulus( double x_pos, double y_pos, double z_pos,
-                       int repeat_num, OutData &signal );
+  //bool rangeSearch( LinearRange &range, double xy_pos, double z_pos,
+  //                  std::vector<double> &avg_rates, OutData &signal,
+  //		    bool x_search, bool adjust_y, bool simulation );
+  void prepareStimulus( OutData &signal, double min, double max, double speed );
+  //int presentStimulus( double x_pos, double y_pos, double z_pos,
+  //                     int repeat_num, OutData &signal );
   void getSpikes( EventList &spikeTrains );
   void getRate( SampleDataD &rate, const EventData &spike_train, int &start_trial,
                 double period, double duration );
