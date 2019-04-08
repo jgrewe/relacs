@@ -2057,6 +2057,7 @@ void SaveFiles::NixFile::initTraces ( const InList &IL )
     // std::cerr << "SampleRate: " << IL[k].sampleRate() << std::endl;
     NixTrace trace;
     string data_type = "nix.data.sampled." + IL[k].ident();
+    std::cerr << "Savefiles: trying to create data array: " << IL[k].ident() << std::endl;
     trace.data = root_block.createDataArray(IL[k].ident(), data_type, nix::DataType::Float, {4096});
     std::string unit = IL[k].unit();
     nix::util::unitSanitizer(unit);
@@ -2108,6 +2109,7 @@ void SaveFiles::NixFile::createStimulusTag( const std::string &repro_name, const
     s = fd.createSection( stim_name, stim_type );
     saveNIXOptions( stim_options, s, Options::FirstOnly, 0 );
   }
+  std::cerr << "Savefiles::createStimTag trying to create data array: " << (repro_name + " onset times") << std::endl;
   stimulus_positions = root_block.createDataArray( repro_name + " onset times", "nix.event.positions",
                                                    nix::DataType::Double, {1} );
 
@@ -2116,6 +2118,7 @@ void SaveFiles::NixFile::createStimulusTag( const std::string &repro_name, const
   stimulus_positions.unit( "s" );
   stimulus_positions.label( "time" );
 
+  std::cerr << "Savefiles::createStimTag trying to create data array: " << (repro_name + " durations") << std::endl;
   stimulus_extents = root_block.createDataArray( repro_name + " durations", "nix.event.extents",
                                                  nix::DataType::Double, {1} );
   stimulus_extents.setData( nix::DataType::Double, &duration, {1}, {0} );
@@ -2293,6 +2296,7 @@ nix::DataArray SaveFiles::NixFile::createFeature( nix::Block &block,
 						  std::string name, std::string type,
 						  std::string unit, std::string label,
 						  nix::LinkType link_type, nix::DataType dtype ) {
+  std::cerr << "Savefiles::createFeature trying to create data array: " << name << std::endl;
   nix::DataArray da = block.createDataArray(name, type, dtype, {0});
   da.appendSetDimension();
   da.label(label);
@@ -2363,6 +2367,7 @@ void SaveFiles::NixFile::initEvents( const EventList &EL, FilterDetectors *FD ) 
     std::string data_type = "nix.events.position." + ident;
     if ( root_block.hasDataArray(ident) )
        ident = EL[i].ident() + "_events";
+    std::cerr << "Savefiles::initEvents trying to create data array: " << ident << std::endl;
     ed.data = root_block.createDataArray( ident, data_type, nix::DataType::Double, {256} );
     ed.data.unit( "s" );
     ed.data.label( "time" );
