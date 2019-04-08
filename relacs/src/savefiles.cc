@@ -1781,6 +1781,9 @@ string SaveFiles::NixFile::create ( string path, bool compression )
   fd = nix::File::open( nix_path, nix::FileMode::Overwrite, "hdf5", compr );
   root_block = fd.createBlock(rid, "recording");
   root_section = fd.createSection(rid, "recording");
+
+  nix::Value ver( SaveFiles::NixFile::relacs_nix_version );
+  root_section.createProperty("relacs-nix version", ver);
   root_block.metadata( root_section );
   return nix_path;
 }
@@ -2028,6 +2031,7 @@ void SaveFiles::NixFile::writeRePro ( const Options &reproinfo, const deque< str
     }
     s.createProperty( "reprofiles", values );
   }
+  stimulus_group = root_block.createGroup( repro_name, "relacs.stimulus_group");
   // store data
   repro_tag = root_block.createTag( repro_name, "relacs.repro_run", {repro_start_time});
   repro_tag.units({"s"});
@@ -2041,6 +2045,7 @@ void SaveFiles::NixFile::writeRePro ( const Options &reproinfo, const deque< str
     }
     repro_tag.addReference( event.data );
   }
+  stimulus_group.addTag( repro_tag );
 }
 
 void SaveFiles::NixFile::endRePro( double current_time )
@@ -2050,6 +2055,7 @@ void SaveFiles::NixFile::endRePro( double current_time )
     double actual_duration =  current_time - stimulus_start_time - stepsize;
     replaceLastEntry( stimulus_extents, actual_duration );
   }
+  stimulus_group.addMultiTag( stimulus_tag );
   fd.flush();
 }
 
@@ -2210,6 +2216,7 @@ void SaveFiles::NixFile::createStimulusTag( const std::string &repro_name, const
       createFeature(root_block, stimulus_tag, fname, ftype, funit, flabel, nix::LinkType::Indexed, dtype);
     }
   }
+  stimulus_feats = stimulus_tag.features();
 }
 
 
@@ -2219,11 +2226,8 @@ void SaveFiles::NixFile::writeStimulus( const InList &IL, const EventList &EL,
                     const deque< Options > &stimuliref, int *stimulusindex,
                     double sessiontime, const string &reproname, const Acquire *acquire )
 {
-  if ( !fd )
+  if ( !fd || IL[0].signalIndex() < 1 )
     return;
-  if ( IL[0].signalIndex() < 1 ) {
-    return;
-  }
 
   double abs_time = IL[0].signalTime() - sessiontime;
   double delay = stim_info[0].delay();
@@ -2233,36 +2237,42 @@ void SaveFiles::NixFile::writeStimulus( const InList &IL, const EventList &EL,
   stimulus_start_time = (IL[0].signalIndex() - trace.index  + trace.written) * stepsize;
   stimulus_duration = stim_info[0].length() - stepsize;
   string tag_name = nix::util::nameSanitizer(stim_info[0].description().name());
-  if ( stimulus_tag && stimulus_tag.name() != tag_name ) {
-    stimulus_tag = root_block.getMultiTag(tag_name);
-  }
-  if ( stimulus_tag && stimulus_tag.name() == tag_name ) {
-    stimulus_positions = stimulus_tag.positions();
-    stimulus_extents = stimulus_tag.extents();
-    data_features.clear();
-    std::vector<nix::Feature> feats = stimulus_tag.features();
-    for (nix::Feature f : feats) { // this can be switched to getting the feature by name after the next nix release is out...
-      if ( f.data().name() == tag_name + "_abs_time")
-        time_feat = f.data();
-      else if (f.data().name() == tag_name + "_amplitude" )
-        amplitude_feat = f.data();
-      else if (f.data().name() == tag_name + "_delay" )
-        delay_feat = f.data();
-      else {
-        for (auto o : stim_options) {
-          if ( f.data().name() ==  tag_name + "_" + o.name()) {
-            data_features.push_back(f.data());
+
+  if ( stimulus_tag ) { // there is already a stimulus tag
+    if ( stimulus_tag.name() != tag_name ) { // it is NOT the one we need
+      stimulus_tag = root_block.getMultiTag(tag_name); // try to find it
+      if ( stimulus_tag ) {  // if a match was found, read the stuff
+        stimulus_positions = stimulus_tag.positions();
+        stimulus_extents = stimulus_tag.extents();
+        data_features.clear();
+        stimulus_feats = stimulus_tag.features();
+        for (nix::Feature f : stimulus_feats) {
+          if ( f.data().name() == tag_name + "_abs_time")
+            time_feat = f.data();
+          else if (f.data().name() == tag_name + "_amplitude" )
+            amplitude_feat = f.data();
+          else if (f.data().name() == tag_name + "_delay" )
+            delay_feat = f.data();
+          else {
+            for (auto o : stim_options) {
+              if ( f.data().name() ==  tag_name + "_" + o.name()) {
+                data_features.push_back(f.data());
+              }
+            }
           }
         }
       }
     }
-    appendValue(stimulus_positions, stimulus_start_time);
-    appendValue(stimulus_extents, stimulus_duration);
+    if ( stimulus_tag ) {
+      appendValue(stimulus_positions, stimulus_start_time);
+      appendValue(stimulus_extents, stimulus_duration);
+    }
   }
-  else { // There is no such tag, we need to create a new one
+  if ( !stimulus_tag ) { // there was no stimulus tag and no match was found, create a new one
     createStimulusTag(tag_name, stim_info[0].description(), stim_options, stim_info,
                       acquire, stimulus_start_time, stimulus_duration);
   }
+
   for ( auto o : stim_options ) { //TODO check if this can be simplified
     for ( auto da : data_features ) {
       if ( da.name() ==  tag_name + "_" + o.name()) {
@@ -2277,15 +2287,21 @@ void SaveFiles::NixFile::writeStimulus( const InList &IL, const EventList &EL,
     }
   }
   Options mutables = stimuliref[0].section( "parameter" );
+  string prop_name;
   for (auto p : mutables) {
-    if ( p.isNumber() ) {
-      double val = p.number();
-      nix::DataArray da =  root_block.getDataArray( tag_name + "_" + p.name() );
-      appendValue( da, val );
-    } else if ( p.isText() ) {
-      string val = p.text();
-      nix::DataArray da =  root_block.getDataArray( tag_name + "_" + p.name() );
-      appendValue( da, val );
+    prop_name = tag_name + "_" + p.name();
+    for (auto f : stimulus_feats) {
+      if (f.data().name() == prop_name) {
+        nix::DataArray da = f.data();
+        if ( p.isNumber() ) {
+          double val = p.number();
+          appendValue( da, val );
+        } else if ( p.isText() ) {
+          string val = p.text();
+          appendValue( da, val );
+        }
+        break;
+      }
     }
   }
 
