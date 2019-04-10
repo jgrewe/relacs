@@ -249,7 +249,7 @@ void Robot::storePosition( const string &name, const Point &p ) {
 }
 
 
-void Robot::config( void ) {
+void Robot::initDevices( void ) {
   robot = dynamic_cast<misc::XYZRobot*>( device( text( "robot" ) ) );
   if ( exist( "FishHeadPosition" ) ) {
     Point fish_start( point("FishHeadPosition") );

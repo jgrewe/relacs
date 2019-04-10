@@ -67,7 +67,7 @@ public:
   Robot( void );
   ~Robot( void );
   virtual void main( void );
-  virtual void config( void );
+  virtual void initDevices( void );
   virtual void updateCalibration( void );
 
 protected:
