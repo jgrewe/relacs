@@ -332,33 +332,39 @@ SampleDataD ReceptiveField::spectrogram( const SampleDataD &rate, int nfft, int 
 }
 
 
-void ReceptiveField::analyze( EventList &spike_trains ) {
+double ReceptiveField::analyze( EventList &spike_trains ) {
   if (spike_trains.size() < 1) {
-    return;
+    return -1;
   }
 
   int nfft = number( "nfft" );
   int noverlap = number( "noverlap" );
   double kw = number( "kernelwidth" );
   double stepsize = spike_trains[0].stepsize();
-
   GaussKernel kernel( kw );
   SampleDataD rate( (int)(this->duration/stepsize), 0.0, stepsize );
   spike_trains[0].rate( rate, kernel );
   spike_trains.clear();
-  
-  SampleDataD spcg = spectrogram(rate, nfft, noverlap);
+
+  SampleDataD spec = spectrogram( rate, nfft, noverlap );
+  SampleDataD rf(spec.size(), 0.0);
+  rf.setRange(spec.rangeFront(), spec.rangeBack());
+  for ( int i = -10; i <= 10; ++i )
+    rf[((int)spec.size()/2) - i] = 1./abs(i);
+  spec -= rf;
+  double bestt = spec.pos( spec.maxIndex( 0.0, spec.rangeBack() ) );
   
   posPlot.lock();
   posPlot.clear();
   //double xrange = xmax - xmin;
   //double yrange = ymax - ymin;
-  posPlot.setXRange( spcg.rangeFront(), spcg.rangeBack());
+  posPlot.setXRange( spec.rangeFront(), spec.rangeBack());
   Plot::LineStyle ls(2);
-  posPlot.plot(spcg, 1.0, ls);
+  posPlot.plot(spec, 1.0, ls);
   posPlot.draw();
   posPlot.unlock();
-
+  
+  return bestt;
 }
 
 
