@@ -22,6 +22,7 @@
 #include <cmath>
 #include <relacs/relacswidget.h>
 #include <relacs/efish/receptivefield.h>
+#include <relacs/kernel.h>
 
 #define PI 3.14159265
 
@@ -58,8 +59,9 @@ ReceptiveField::ReceptiveField( void )
              0.001, 0.0, 10., .0001, "V", "mV" );
 
   newSection( "Analysis" );
-  addNumber( "nfft", "Number of data points used for the estimation of the power spectrum", 1024, 256, 65536, 1);
-  addNumber( "nshift", "Number of data points by which segments are shifted", 1024, 256, 65536, 1);
+  addNumber( "nfft", "Number of data points used for the estimation of the power spectrum", 1024, 64, 65536, 1);
+  addNumber( "nshift", "Number of data points by which segments are shifted", 128, 64, 65536, 1);
+  addNumber( "kernelwidth", "Width of gaussian kernel used to estimate the firing rate", 0.001, 0.0001, 1., 0.0001, "ms" );
 
   newSection( "Robot setup" );
   addText( "robotdev", "The robot device", "robot-2" );
@@ -79,7 +81,8 @@ ReceptiveField::ReceptiveField( void )
 
   posPlot.lock();
   posPlot.setXLabel( "x-Position [mm]" );
-  posPlot.setYRange( 0., 250. );
+  //posPlot.setYRange( 0., 250. );
+  posPlot.setXRange( Plot::AutoScale, Plot::AutoScale );
   posPlot.setYLabel( "y-Position [mm]" );
   posPlot.setLMarg( 6 );
   posPlot.setRMarg( 1 );
@@ -308,11 +311,54 @@ void ReceptiveField::getSpikes( EventList & spike_trains ) {
 }
 
 
-void ReceptiveField::analyze( const EventList &spike_trains ) {
-  SampleDataD avgRate();
-  for ( int i=0; i<spike_trains.size(); i++ ) {
+SampleDataD ReceptiveField::spectrogram( const SampleDataD &rate, int nfft, int noverlap ) {
+  SampleDataD specgram;
 
+  int start = 0;
+  int end = nfft;
+  SampleDataD psd( nfft );
+
+  while ( end < rate.size() ) {
+    SampleDataD snippet;
+    cerr << start << "\t" << end << endl;
+    rate.copy(start * rate.stepsize(), end * rate.stepsize(), snippet);
+    rPSD( snippet, psd );
+    double dfPower = psd.mean(this->deltaf - 2*psd.stepsize(), this->deltaf + 2 * psd.stepsize());
+    specgram.append(dfPower);
+    start += (nfft - noverlap);
+    end = start + nfft;
   }
+  return specgram;
+}
+
+
+void ReceptiveField::analyze( EventList &spike_trains ) {
+  if (spike_trains.size() < 1) {
+    return;
+  }
+
+  int nfft = number( "nfft" );
+  int noverlap = number( "noverlap" );
+  double kw = number( "kernelwidth" );
+  double stepsize = spike_trains[0].stepsize();
+
+  GaussKernel kernel( kw );
+  SampleDataD rate( (int)(this->duration/stepsize), 0.0, stepsize );
+  spike_trains[0].rate( rate, kernel );
+  spike_trains.clear();
+  
+  SampleDataD spcg = spectrogram(rate, nfft, noverlap);
+  
+  posPlot.lock();
+  posPlot.clear();
+  //double xrange = xmax - xmin;
+  //double yrange = ymax - ymin;
+  posPlot.setXRange( spcg.rangeFront(), spcg.rangeBack());
+  Plot::LineStyle ls(2);
+  posPlot.plot(spcg, 1.0, ls);
+  posPlot.draw();
+  posPlot.unlock();
+
 }
 
 
@@ -336,7 +382,6 @@ void ReceptiveField::prepareStimulus( OutData &signal, double min, double max, d
   double eodf = events( LocalEODEvents[0] ).frequency( currentTime() - 0.5, currentTime() );
   signal.setTrace( LocalEField[0] );
   this->duration = (max + min ) / speed;
-
   signal.sineWave( duration, 0.0, eodf + this->deltaf );
   signal.setIntensity( this->amplitude );
 
@@ -346,7 +391,8 @@ void ReceptiveField::prepareStimulus( OutData &signal, double min, double max, d
   Parameter &p3 = opts.addNumber( "deltaf", this->deltaf, "Hz" );
   Parameter &p4 = opts.addNumber( "freq", eodf + this->deltaf, "Hz" );
   Parameter &p5 = opts.addNumber( "direction", 0, "" );
-  Parameter &p6 = opts.addText( "scantype", "" );
+  Parameter &p6 = opts.addNumber( "speed", 0, "mm/s" );
+  Parameter &p7 = opts.addText( "scantype", "" );
 
   signal.setMutable( p1 );
   signal.setMutable( p2 );
@@ -354,6 +400,7 @@ void ReceptiveField::prepareStimulus( OutData &signal, double min, double max, d
   signal.setMutable( p4 );
   signal.setMutable( p5 );
   signal.setMutable( p6 );
+  signal.setMutable( p7 );
   signal.setDescription( opts );
 }
 
@@ -379,13 +426,13 @@ int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, dou
  EventList spike_trains;
 
  for ( int k = 0; k < this->npasses; ++k ) {
+
     if ( !interrupt() ) {
       sleep( this->pause );
       signal.description().setNumber("speed", speed);
       signal.description().setNumber("direction", 1);
       this->robot->go_to_point( end_pos, speed );
       write(signal);
-      robot->wait();
     }
     getSpikes( spike_trains );
     analyze( spike_trains );
@@ -395,7 +442,6 @@ int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, dou
       signal.description().setNumber("direction", -1);
       this->robot->go_to_point( start_pos, speed );
       write( signal );
-      this->robot->wait();
       getSpikes( spike_trains );
       analyze( spike_trains );
     }
@@ -416,14 +462,15 @@ int ReceptiveField::xScan( OutData &signal ) {
   double xspeed = number( "xspeed" );
 
   prepareStimulus( signal, xmin, xmax, xspeed );
-
   double ycorrector = this->y_slope * ( xmax - xmin );
+
   Point fish_start_pos( xmin, ystart, zpos );
   Point fish_end_pos( xmax, ystart + ycorrector, zpos );
 
   Point robot_start_pos = convertToRobotCoords( fish_start_pos );
   Point robot_end_pos = convertToRobotCoords( fish_end_pos );
-  this->robot->go_to_point( robot_start_pos, xspeed );
+
+  this->robot->go_to_point( robot_start_pos, xspeed*4 );
   this->robot->wait();
 
   signal.description().setText( "scantype", "xscan" );
@@ -471,7 +518,6 @@ int ReceptiveField::setupRobot( ) {
   this->robot->wait();
   if ( interrupt() ) {
     this->robot->PF_up_and_over( this->safe_pos );
-    this->robot->wait();
     return Aborted;
   }
   this->axis_map = {0, 1, 2};
@@ -482,6 +528,7 @@ int ReceptiveField::setupRobot( ) {
   this->axis_invert[0] = boolean("xinvert") ? -1 : 1;
   this->axis_invert[1] = boolean("yinvert") ? -1 : 1;
   this->axis_invert[2] = boolean("zinvert") ? -1 : 1;
+  return 0;
 }
 
 int ReceptiveField::main( void )
@@ -513,9 +560,22 @@ int ReceptiveField::main( void )
   OutData signal;
   resetPlots( number( "xmin" ), number( "xmax" ),
               number( "ymin" ), number( "ymax" ));
-  xScan( signal );
-  yScan( signal );
+  if ( ((fish_head == Point::Origin) && (fish_tail == Point::Origin)) ||
+       (fish_head == fish_tail)) {
+    warning( "Fish position seems wrong! Aborting RePro" );
+    return Failed;
+  }
 
+  err = xScan( signal );
+  if ( err != 0 ){
+    warning( "ReceptiveFields::xScan returned non null error! Aborting!" );
+    return err;
+  }
+  err = yScan( signal );
+  if ( err != 0 ) {
+    warning( "ReceptiveFields::yScan returned non null error! Aborting!" );
+    return err;
+  }
   return Completed;
 }
 
