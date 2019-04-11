@@ -57,11 +57,16 @@ public:
   virtual int reset( void );
 
   /*! Absolute move of axis \a axis to position \a pos with speed \a speed.
-    If \a speed is zero, a default value for the speed is used. */
-  virtual int move( int axis, double pos, double speed=0.0 );
+    If \a speed is zero, a default value for the speed is used.
+    Pos is in mm relative to the reference position, speed in mm/s, 
+    acceleration in mm/s^2
+  */
+  virtual int move( int axis, double pos, double speed=0.0, double acceleration=0.0 );
   /*! Relative move of axis \a axis by \a s with speed \a speed.
-    If \a speed is zero, a default value for the speed is used. */
-  virtual int step( int axis, double s, double speed=0.0 );
+    If \a speed is zero, a default value for the speed is used.
+    s is given in mm, speed is given in mm/s acceleration in mm/s^2
+  */
+  virtual int step( int axis, double s, double speed=0.0, double acceleration=0.0 );
 
   /*! Immediately stop movement of axis \a axis. */
   virtual int stop( int axis );
@@ -131,7 +136,8 @@ public:
 
 private:
   int Speed = 40;
-  double Acc = 0.75;
+  double tml_time = 0.001;
+  double Acc = 200.;
   bool Opened;
   int FileDescr;
   struct axis_limits {

@@ -135,39 +135,48 @@ void Mirob::close( void )
 
    axis: is the axis you want to move
    pos: the position in mm
-   speed: the speed in steps per "unknown time"
+   speed: the speed in "mm/s"
+   acc: the acceleration in mm/s^2
 
  */
 
-int Mirob::move( int axis, double pos, double speed )
+int Mirob::move( int axis, double pos, double speed, double acc )
 {
-  double ds;  // the step size in mm.
-  ds = get_step_length( axis );
-
-  TS_SelectAxis( axis+1 );
-
-  if ( pos < 0.0 || ds <= 0.0 )
+  if ( pos < 0.0 )
     return -1;
+  double stepsize = get_step_length( axis ); // mm per step
+  if ( speed == 0.0 )
+    speed = this->Speed;
+  if ( acc == 0.0 )
+    acc = this->Acc;
 
-  double usedacc = Acc*get_axis_factor( axis );
-  long steps = (long)round(pos / ds);
+  double tml_speed = speed / stepsize * this->tml_time;
+  double tml_acc = acc / stepsize * this->tml_time * this->tml_time;
+  long steps = (long)round( pos / stepsize );
 
-  TS_MoveAbsolute( steps, speed, usedacc, UPDATE_IMMEDIATE, FROM_REFERENCE );
-
+  TS_SelectAxis( axis + 1 );
+  TS_MoveAbsolute( steps, tml_speed, tml_acc, UPDATE_IMMEDIATE, FROM_REFERENCE );
   return 0;
 }
 
 
-int Mirob::step( int axis, double s, double speed )
+int Mirob::step( int axis, double s, double speed, double acc)
 {
   if ( s == 0.0 )
     return -1;
-  long steps = (long) round( s / get_step_length( axis ) );
-  double Usedacc = Acc*get_axis_factor( axis );
+  double stepsize = get_step_length( axis ); // mm per step
+  if ( speed == 0.0 )
+    speed = this->Speed;
+  if ( acc == 0.0 )
+    acc = this->Acc;
+
+  double tml_speed = speed / stepsize * this->tml_time; // steps per controller time
+  double tml_acc = acc / stepsize * this->tml_time * this->tml_time;
+  long steps = (long)round( s / stepsize );
   bool additive = false;
 
-  TS_SelectAxis( axis+1 );
-  TS_MoveRelative( steps, speed, Usedacc, additive, UPDATE_IMMEDIATE, FROM_REFERENCE );
+  TS_SelectAxis( axis + 1 );
+  TS_MoveRelative( steps, tml_speed, tml_acc, additive, UPDATE_IMMEDIATE, FROM_REFERENCE );
   return 0;
 }
 
@@ -294,7 +303,6 @@ void Mirob::set_intern_position( int mirobaxis, long int pos )
 double Mirob::get_step_length( int axis ) const
 {
   double ds;
-  
   if ( axis < 0 || axis > 2 )
     return -1;
   else {
@@ -311,32 +319,26 @@ double Mirob::get_step_length( int axis ) const
   return ds;
 }
 
-
 double Mirob::get_axis_factor( int axis ) const
 {
-  double offset = 1000.;
-
-  if ( axis == 1 ) {
-    return ((8192./ 10.) / offset);
-  } else if (axis == 2) {
-    return ((8192./2.)  / offset);
-  } else {
-    return ((10000./10.)/offset);
-  }
-
+  double dflt = 1000.; // x axis: 1000 steps per mm
+  double factor;
+  if (axis == 1)
+    factor = (8192. / 10.) / dflt; // y axis is a bit faster
+  else if (axis == 2)
+    factor = (8192. / 2.) / dflt; // z axis much slower but finer resolution
+  else
+    factor = 1.0;
+  return factor;
 }
 
-double Mirob::get_max(double a, double b, double c) {
-
+double Mirob::get_max(double a, double b, double c)
+{
   double max;
-
   max = (a > b)   ? a : b;
   max = (c > max) ? c : max;
-
   return max;
-
 }
-
 
 /**
    the axis goes to the given limit:
@@ -373,7 +375,8 @@ void Mirob::search_home( int mirobaxis, int speed, bool positive )
 }
 
 
-void Mirob::go_to_reference( bool positive, int speed ) {
+void Mirob::go_to_reference( bool positive, int speed )
+{
   //all axis go to the given limit:
   // positive- true: the positive limit
   //         - false: the negative limit
@@ -590,21 +593,24 @@ void Mirob::check_all_reg( int mirobaxis )
 }
 
 
-bool Mirob::toolClamped() {
+bool Mirob::toolClamped()
+{
   TS_SelectAxis(3);
   BYTE InValue;
   TS_GetInput(36, InValue);
   return InValue == 1;
 }
 
-bool Mirob::toolPresent() {
+bool Mirob::toolPresent()
+{
   TS_SelectAxis(3);
   BYTE InValue;
   TS_GetInput(37, InValue);
   return InValue == 1;
 }
 
-void Mirob::toolRelease() {
+void Mirob::toolRelease()
+{
   if (toolClamped()) {
     TS_SelectAxis(3);
     TS_SetOutput(30, 0);
@@ -612,8 +618,8 @@ void Mirob::toolRelease() {
   }
 }
 
-
-void Mirob::toolFix() {
+void Mirob::toolFix()
+{
   if ( !toolClamped() ) {
     TS_SelectAxis(3);
     TS_SetOutput(30, 2);
