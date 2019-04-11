@@ -292,38 +292,33 @@ void XYZRobot::go_to_point( const Point &coords, int speed )
     speed = Robot->speed();
 
   Point position = Robot->pos();
-
   int to_move = how_many_move( position, coords );
   if ( to_move == 0 )
     return;
-  //  Point dists = position.abs_diff(coords);
   Point dists = abs(position - coords);
-  Point speeds = Point( speed*Robot->get_axis_factor( 0 ),
-			speed*Robot->get_axis_factor( 1 ),
-			speed*Robot->get_axis_factor( 2 ) );
+  Point speeds = Point( speed, speed, speed );
 
   if ( to_move == 1 ) {
-    for ( int axis=0; axis<3; axis++ ) {
-      if ( dists[axis] > Robot->get_step_length( axis )/2 )
+    for ( int axis = 0; axis < 3; ++axis ) {
+      if ( dists[axis] > Robot->get_step_length( axis ) / 2 )
 	Robot->move( axis, coords[axis], speeds[axis] );
     }
   }
 
   Point times = calculate_times( speeds, dists );
   double maxTime = get_max( times[0], times[1], times[2] );
-  double precision = 0.005;
 
-  if ( to_move == 2 || to_move == 3 ) {
-    for ( int axis=0; axis<3; axis++ ) {
+  if ( to_move > 1 ) {
+    for ( int axis = 0; axis < 3; ++axis ) {
       if( times[axis] < maxTime ) {
-	speeds[axis] = calc_speed( axis, speeds[axis],
-				   dists[axis], maxTime, precision );
+	speeds[axis] = calc_speed( dists[axis], maxTime );
       }
     }
     if ( !Robot->checkPowerState() )
       powerAxes( true );
-    if ( speeds[2] > 450 )
+    if ( speeds[2] > 450 ) {
       speeds[2] = 450;
+    }
     Robot->move( 0, coords.x(), speeds[0] );
     Robot->move( 1, coords.y(), speeds[1] );
     Robot->move( 2, coords.z(), speeds[2] );
@@ -631,7 +626,7 @@ int XYZRobot::how_many_move( const Point &position, const Point &coords )
 {
   int count = 0;
   for ( int i=0; i<3; i++ ) {
-    if ( abs(position[i] - coords[i]) > 0.5 * Robot->get_step_length(i) )
+    if ( abs(position[i] - coords[i]) > (0.5 * Robot->get_step_length(i)) )
       count++;
   }
   return count;
@@ -658,54 +653,41 @@ void  XYZRobot::test_how_many_move()
 }
 
 
-double XYZRobot::calc_speed( int axis, double speed, double dist,
-			     double maxTime, double precision )
+double XYZRobot::calc_speed( double dist, double time, double acceleration )
 {
   if (dist <= 1)
     return 1;
-  
-  double time = calculate_intern_time( axis, speed, dist );
-  
-  int Safetycount = 0;
-  int maxCount = speed/precision;
+  double a;
+  if ( acceleration > 0.0 ) {
+    a = acceleration;
+  } else {
+    a = Robot->acceleration();
+  }
+  double v1 = ((time * a) + sqrt((time * a) * (time * a)  - 4 * dist * a)) / 2;
+  double v2 = ((time * a) - sqrt((time * a) * (time * a)  - 4 * dist * a)) / 2;
 
-  while( time < maxTime ) {
-      speed -= precision;
-      time = calculate_intern_time( axis, speed, dist );
-
-      Safetycount++;
-      if ( Safetycount > maxCount ) {
-	std::cerr << "calc_speed broke for axis:" << axis  << " with maxCount:"
-		  << maxCount << std::endl;
-	return 1;
-      }
-
-    }
-  return speed;
+  return dist/v1 > v1/a ? v1 : v2;
 }
 
 
-double XYZRobot::calculate_intern_time( int axis, double axisSpeed, double distance )
+double XYZRobot::estimated_arrival_time( double speed, double distance, double acc) const 
 {
-  double axisAcc = Robot->acceleration() * Robot->get_axis_factor( axis );
-  double axisSteps = distance / Robot->get_step_length( axis );
-  
-  double time = ( (2*axisSpeed/axisAcc +
-		   (axisSteps - (axisSpeed*axisSpeed/axisAcc))/axisSpeed) );
-  return time;
+  return speed/acc + distance/speed;
 }
 
 
 Point XYZRobot::calculate_times( const Point &speeds, const Point &dists )
 {
   Point times = Point();
-  for ( int k=0; k<3; k++ )
-    times[k] = calculate_intern_time( k, speeds[k], dists[k] );
+  for ( int k = 0; k < 3; ++k ) {
+    times[k] = estimated_arrival_time( speeds[k], dists[k], Robot->acceleration());
+  }
   return times;
 }
 
 
-double XYZRobot::get_max(double a, double b, double c) {
+double XYZRobot::get_max(double a, double b, double c)
+{
   double max;
   max = (a > b)   ? a : b;
   max = (c > max) ? c : max;

@@ -147,9 +147,15 @@ protected:
   /*! Number of axis that need to be moved to get from \a position to \a coords. */
   int how_many_move( const Point &position, const Point &coords );
   void test_how_many_move();
-  double calc_speed( int axis, double speed, double dist,
-		     double maxTime, double precision );
-  double calculate_intern_time( int axis, double axisSpeed, double distance );
+  /*! Calculates the speed required to cover the given distance using with the 
+    given acceleration.
+    If acceleration is not given, the robot's default acceleration is used.
+  */
+  double calc_speed( double dist, double maxTime, double acceleration=-1.0);
+  /*! estimate the arrival time for a given speed, acceleration and travel distance.
+    speed is given in mm/s, acc mm/s^2 and distance in mm.
+  */
+  double estimated_arrival_time( double speed, double distance, double acceleration=0.0) const;
   Point calculate_times( const Point &speeds, const Point &dists );
   double get_max(double a, double b, double c);
 
