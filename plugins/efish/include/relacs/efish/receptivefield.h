@@ -79,8 +79,8 @@ class ReceptiveField : public RePro,
   void getSpikes( EventList &spikeTrains );
   void getRate( SampleDataD &rate, const EventData &spike_train, int &start_trial,
                 double period, double duration );
-  double analyze( EventList &spikeTrains );
-  SampleDataD spectrogram( const SampleDataD &rate, int nfft, int noverlap );
+  int analyze( EventList &spikeTrains, double &bestt, double &certainty );
+  SampleDataD spectrogram( const SampleDataD &rate, int nfft, int nshift );
   bool moveToPosition( double x, double y, double z );
   double getYSlope( void );
 };

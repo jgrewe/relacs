@@ -139,8 +139,9 @@ void ReceptiveField::resetPlots( double xmin, double xmax, double ymin, double y
   posPlot.clear();
   double xrange = xmax - xmin;
   double yrange = ymax - ymin;
-  posPlot.setXRange( xmin - 0.1 * xrange, xmax + 0.1 * xrange );
-  posPlot.setYRange( ymin - 0.1 * yrange, ymax + 0.1 * yrange );
+  //posPlot.setXRange( xmin - 0.1 * xrange, xmax + 0.1 * xrange );
+  //posPlot.setYRange( ymin - 0.1 * yrange, ymax + 0.1 * yrange );
+  posPlot.setAutoScaleY();
   posPlot.draw();
   posPlot.unlock();
 }
@@ -311,34 +312,34 @@ void ReceptiveField::getSpikes( EventList & spike_trains ) {
 }
 
 
-SampleDataD ReceptiveField::spectrogram( const SampleDataD &rate, int nfft, int noverlap ) {
+SampleDataD ReceptiveField::spectrogram( const SampleDataD &rate, int nfft, int nshift ) {
   SampleDataD specgram;
-
   int start = 0;
   int end = nfft;
   SampleDataD psd( nfft );
+  SampleDataD snippet;
+  double dfPower;
 
   while ( end < rate.size() ) {
-    SampleDataD snippet;
-    cerr << start << "\t" << end << endl;
     rate.copy(start * rate.stepsize(), end * rate.stepsize(), snippet);
     rPSD( snippet, psd );
-    double dfPower = psd.mean(this->deltaf - 2*psd.stepsize(), this->deltaf + 2 * psd.stepsize());
+    dfPower = psd.mean(this->deltaf - 2*psd.stepsize(), this->deltaf + 2 * psd.stepsize());
     specgram.append(dfPower);
-    start += (nfft - noverlap);
+    start += nshift;
     end = start + nfft;
   }
+  specgram.setRange( 0.0, nshift * rate.stepsize() );
   return specgram;
 }
 
 
-double ReceptiveField::analyze( EventList &spike_trains ) {
+int ReceptiveField::analyze( EventList &spike_trains, double &bestt, double &certainty ) {
   if (spike_trains.size() < 1) {
     return -1;
   }
 
   int nfft = number( "nfft" );
-  int noverlap = number( "noverlap" );
+  int nshift = number( "nshift" );
   double kw = number( "kernelwidth" );
   double stepsize = spike_trains[0].stepsize();
   GaussKernel kernel( kw );
@@ -346,25 +347,28 @@ double ReceptiveField::analyze( EventList &spike_trains ) {
   spike_trains[0].rate( rate, kernel );
   spike_trains.clear();
 
-  SampleDataD spec = spectrogram( rate, nfft, noverlap );
-  SampleDataD rf(spec.size(), 0.0);
-  rf.setRange(spec.rangeFront(), spec.rangeBack());
-  for ( int i = -10; i <= 10; ++i )
-    rf[((int)spec.size()/2) - i] = 1./abs(i);
-  spec -= rf;
-  double bestt = spec.pos( spec.maxIndex( 0.0, spec.rangeBack() ) );
-  
+  SampleDataD spec = spectrogram( rate, nfft, nshift );
+  for ( int i = -10; i <= 10; ++i ) {
+    int idx = ((int)spec.size()/2) - i;
+    if (idx >= 0 && idx < spec.size())
+      spec[idx] += (spec[idx] * (2 - abs(i) * 0.2 ));
+  }
+  SampleDataD smoothed = spec.smooth(spec, 5);
+  bestt = smoothed.pos( smoothed.maxIndex( 0.0, smoothed.rangeBack() ) ) / smoothed.rangeBack();
+  double max, mean, std;
+  max = smoothed.max( smoothed.rangeFront(), smoothed.rangeBack() );
+  mean = smoothed.mean( std, smoothed.rangeFront(), smoothed.rangeBack() );
+  certainty = abs(max - mean) / (2 * std);
+
   posPlot.lock();
   posPlot.clear();
-  //double xrange = xmax - xmin;
-  //double yrange = ymax - ymin;
   posPlot.setXRange( spec.rangeFront(), spec.rangeBack());
   Plot::LineStyle ls(2);
   posPlot.plot(spec, 1.0, ls);
   posPlot.draw();
   posPlot.unlock();
-  
-  return bestt;
+
+  return 0;
 }
 
 
@@ -387,7 +391,7 @@ void plotBestY(Plot &p, double y) {
 void ReceptiveField::prepareStimulus( OutData &signal, double min, double max, double speed ) {
   double eodf = events( LocalEODEvents[0] ).frequency( currentTime() - 0.5, currentTime() );
   signal.setTrace( LocalEField[0] );
-  this->duration = (max + min ) / speed;
+  this->duration = (max - min ) / speed;
   signal.sineWave( duration, 0.0, eodf + this->deltaf );
   signal.setIntensity( this->amplitude );
 
@@ -420,6 +424,7 @@ int map_axis( const string &s ) {
   return -1;
 }
 
+
 Point ReceptiveField::convertToRobotCoords( const Point &fish_point ) {
   Point destination( this->fish_head );
   for (size_t i = 0; i < this->axis_map.size(); i++ ) {
@@ -428,11 +433,16 @@ Point ReceptiveField::convertToRobotCoords( const Point &fish_point ) {
   return destination;
 }
 
+
 int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, double speed ) {
  EventList spike_trains;
+ int err;
+ std::vector<double> best_forward, best_reverse;
+ cerr << signal.rangeBack() << endl;
+ cerr << this->duration << endl;
 
+ double bestt, certainty;
  for ( int k = 0; k < this->npasses; ++k ) {
-
     if ( !interrupt() ) {
       sleep( this->pause );
       signal.description().setNumber("speed", speed);
@@ -441,7 +451,11 @@ int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, dou
       write(signal);
     }
     getSpikes( spike_trains );
-    analyze( spike_trains );
+    err = analyze( spike_trains, bestt, certainty );
+    cerr << "Forward, bestt: " << bestt << " certainty: " << certainty << endl;
+    // get the best x/y position Point?
+    if (err == 0)
+      best_forward.push_back(bestt);
     if ( !interrupt() ) {
       sleep( pause );
       signal.description().setNumber("speed", speed);
@@ -449,7 +463,10 @@ int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, dou
       this->robot->go_to_point( start_pos, speed );
       write( signal );
       getSpikes( spike_trains );
-      analyze( spike_trains );
+      err = analyze( spike_trains, bestt, certainty );
+      cerr << "Reverse, bestt: " << bestt << " certainty: " << certainty << endl;
+      if (err == 0)
+	best_reverse.push_back(bestt);
     }
   }
   if ( interrupt() ) {
@@ -459,6 +476,7 @@ int ReceptiveField::scan (OutData &signal, Point &start_pos, Point &end_pos, dou
   }
   return Completed;
 }
+
 
 int ReceptiveField::xScan( OutData &signal ) {
   double xmin = number( "xmin" );
@@ -490,15 +508,16 @@ int ReceptiveField::yScan( OutData &signal ) {
   double zpos = number( "zpos" );
 
   prepareStimulus( signal, ymin, ymax, yspeed );
-
+  cerr << "duration: " << this->duration << " ymin: " << ymin << " ymax: " << ymax << endl;
   Point fish_start_pos( this->best_x, ymin, zpos );
   Point fish_end_pos( this->best_x, ymax, zpos );
 
   Point robot_start_pos = convertToRobotCoords( fish_start_pos );
   Point robot_end_pos = convertToRobotCoords( fish_end_pos );
+  cerr << "Go to start position for yscan!" << endl;
   this->robot->go_to_point( robot_start_pos, yspeed );
   this->robot->wait();
-
+  sleep( pause );
   signal.description().setText( "scantype", "yscan" );
   return scan( signal, robot_start_pos, robot_end_pos, yspeed );
 }
