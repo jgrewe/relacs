@@ -36,7 +36,7 @@ MovingObjects::MovingObjects( void )
   addSelection( "movementaxis", "Movement along which dimension", "x|y|z" );
   addNumber( "repeats", "number of back-and-forth movements", 1, 1, 100, 1);
   addNumber( "pause", "pause bewteen movements (trials and back-and-forth movments)", 1.5, 0.0, 100., 0.25, "s");
-  addSelection( "object", "The object that is moved", "pvc comb 4cm|pvc comb 1cm|perspex bar|metal sphere");
+  addSelection( "object", "The object that is moved", "pvc comb 4cm|pvc comb 1cm|perspex bar|metal sphere").delStyle(Parameter::SelectText);
   
   newSection( "Parameter space");
   addNumber( "distmin", "Minimum lateral distance from fish (z).", 0.0, -200.00, 200.0, 1., "mm" );
@@ -56,6 +56,7 @@ MovingObjects::MovingObjects( void )
   addBoolean( "zinvert", "Select to map 0 position in relacs to max position of the robot.", false);
 
   addPoint( "safepos", "Safe position to which the robot returns", Point::Origin);
+  addPoint( "outpos", "Position to which the robot goes before changing lat. dist.", Point::Origin);
 }
 
 
@@ -98,6 +99,7 @@ int MovingObjects::main( void )
 {
   Point start = point( "startpos" );
   Point safe_pos = point( "safepos" );
+  Point out_pos = point( "outpos" );
 
   int repeats = number( "repeats" );
   double pause = number( "pause" );
@@ -213,10 +215,18 @@ int MovingObjects::main( void )
 	}
       }
       if ( interrupt() ) {
-	robot->PF_up_and_over( safe_pos );
+	robot->go_to_point( safe_pos, 40 );
 	robot->wait();
 	return Failed;
       }
+    }
+    if ( i < distrange.size()-1 ) {
+      if (out_pos[0] == 0 && out_pos[1] == 0 && out_pos[2] == 0) {
+	robot->go_to_point( safe_pos, 40 );
+      } else {
+	robot->go_to_point( out_pos, 40 );
+      }
+      robot->wait();
     }
   }
   robot->PF_up_and_over( safe_pos );

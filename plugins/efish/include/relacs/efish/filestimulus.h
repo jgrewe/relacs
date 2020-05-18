@@ -126,7 +126,8 @@ private:
   double LowerCutoff;
   double NoiseTau;
   string NoiseType;
-  
+  string Name;
+
   // variables:
   double Duration;
   double FishAmplitude;

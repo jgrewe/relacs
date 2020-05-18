@@ -55,6 +55,7 @@ FileStimulus::FileStimulus( void )
   // add some parameter as options:
   newSection( "Stimulus" );
   addText( "file", "Stimulus file", "" ).setStyle( OptWidget::BrowseExisting );
+  addText( "name", "Prefix used to identify the repro run, auto-generated if empty", "" ).setStyle( OptWidget::BrowseExisting );
   addNumber( "sigstdev", "Standard deviation of signal", SigStdev, 0.01, 1.0, 0.05 );
   addNumber( "duration", "Duration of signal", Duration, 0.0, 1000.0, 0.01, "seconds", "ms" );
   addNumber( "pause", "Pause between signals", Pause, 0.0, 1000.0, 0.01, "seconds", "ms" );
@@ -142,6 +143,7 @@ FileStimulus::FileStimulus( void )
 int FileStimulus::main( void )
 {
   // get options:
+  Name = text( "name" );
   Str file = text( "file" );
   SigStdev = number( "sigstdev" );
   Duration = number( "duration" );
@@ -353,7 +355,7 @@ int FileStimulus::main( void )
   signal.setTrace( AM ? GlobalAMEField : GlobalEField );
   signal.setStartSource( 1 );
   signal.setDelay( Before );
-  signal.setIdent( filename );
+  signal.setIdent( Name.empty() ? filename : Name );
   Duration = signal.duration();
   restoreMouseCursor();
 
@@ -575,7 +577,8 @@ int FileStimulus::main( void )
 	if ( SpikeEvents[trace] >= 0 ) {
 	  Header.setInteger( "trace", trace );
 	  saveSpikes( trace );
-	  saveNoise( trace, Spikes[trace].size()-1, noisesignal, signal, noisefac, noise );
+	   if ( addNoise ) 
+	     saveNoise( trace, Spikes[trace].size()-1, noisesignal, signal, noisefac, noise );
 	}
       }
       if ( NerveTrace[0] >= 0 ) {

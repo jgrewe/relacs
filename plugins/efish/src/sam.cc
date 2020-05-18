@@ -50,6 +50,8 @@ SAM::SAM( void )
   Before=0.0;
   After=0.0;
   // add some parameter as options:
+  newSection( "General" );
+  addText( "name" , "Prefix used to identify the repro run, auto-generated if empty", "" );
   newSection( "Stimulus" );
   addNumber( "duration", "Duration of signal", Duration, 0.01, 1000.0, 0.01, "seconds", "ms" );
   addNumber( "pause", "Pause between signals", Pause, 0.0, 1000.0, 0.01, "seconds", "ms" );
@@ -139,7 +141,7 @@ int SAM::createSignal( const InData &data, const EventData &events )
 
   Signal = new OutData;
   Signal->setTrace( AM ? GlobalAMEField : GlobalEField );
-  string ident = "";
+  string ident = Name;
 
   if ( AM ) {
     if ( SineWave ) {
@@ -167,7 +169,7 @@ int SAM::createSignal( const InData &data, const EventData &events )
 	IntensityGain = 0.5*(maxval-minval);
       }
       TrueDeltaF = 1.0 / Signal->duration();
-      ident = "SAM";
+      ident = Name.size() == 0 ? "SAM" : Name;
     }
     else {
       warning( "Non-Sinewave as AM not supported yet!" );
@@ -208,7 +210,7 @@ int SAM::createSignal( const InData &data, const EventData &events )
 	::relacs::minMax( minval, maxval, *Signal );
 	IntensityGain = 0.5*(maxval-minval);
       }
-      ident = "sinewave";
+      ident = Name.size() == 0 ? "sinewave" : Name;
     }
     else {
       // extract an EOD waveform:
@@ -225,26 +227,28 @@ int SAM::createSignal( const InData &data, const EventData &events )
       Signal->setCarrierFreq( FishRate + DeltaF );
       Signal->repeat( (int)rint( Duration/Signal->duration() ) );
       Signal->description().setNumber( "Frequency", FishRate + DeltaF );
-      ident = "EOD";
+      ident = Name.size() == 0 ? "EOD" : Name;
     }
   }
   Duration = Signal->duration();
   Signal->description().insertNumber( "DeltaF", "Phase", DeltaF, "Hz" );
   Signal->description().insertNumber( "Contrast", "Frequency", 100.0*Contrast, "%" );
-  if ( settings().flags( "deltaf", OutData::Mutable ) ) {
+  //if ( settings().flags( "deltaf", OutData::Mutable ) ) {
     Signal->description()["Frequency"].addFlags( OutData::Mutable );
     Signal->description()["DeltaF"].addFlags( OutData::Mutable );
-  }
-  if ( settings().flags( "contrast", OutData::Mutable ) )
+    //}
+    //if ( settings().flags( "contrast", OutData::Mutable ) )
     Signal->description()["Contrast"].addFlags( OutData::Mutable );
-  if ( settings().flags( "duration", OutData::Mutable ) )
+    //if ( settings().flags( "duration", OutData::Mutable ) )
     Signal->description()["Duration"].addFlags( OutData::Mutable );
   Signal->setStartSource( 1 );
+  /*
   Str s = ident + ", C=" + Str( 100.0 * Contrast, 0, 5, 'g' ) + "%";
   s += ", Df=" + Str( DeltaF, 0, 1, 'f' ) + "Hz";
   if ( AM )
     s += ", AM";
-  Signal->setIdent( s );
+  */
+  Signal->setIdent( ident );
   Signal->setDelay( Before );
   Signal->clearError();
   return 0;
@@ -254,6 +258,7 @@ int SAM::createSignal( const InData &data, const EventData &events )
 int SAM::main( void )
 {
   // get options:
+  Name = text( "name" );
   Duration = number( "duration" );
   Pause = number( "pause" );
   Repeats = integer( "repeats" );
