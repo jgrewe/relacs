@@ -122,6 +122,7 @@ private:
   double stimulus_contrast;
   double pause;
   int repeats;
+  bool no_chirps;
   
   EODModel eod_model;
   ChirpType chirp_type;

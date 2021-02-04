@@ -204,11 +204,12 @@ EigenmanniaChirps::EigenmanniaChirps( void )
   addNumber( "fakefish", "Fake a receiver fish with the given frequency, set to zero to use the real one", 0.0, 0., 1500., 10., "Hz" );
   
   newSection( "Beat parameter" );
-  addNumber( "duration", "Total trial duration", 1.0, 0.001, 100000.0, 0.001, "s", "ms" );
-  addNumber( "deltaf", "Difference frequency", 20., 0.1, 1000., 1.0, "Hz" );
+  addNumber( "duration", "Total trial duration", 1.0, 0.001, 10000.0, 0.001, "s" );
+  addNumber( "deltaf", "Difference frequency", 20., -300., 300., 1.0, "Hz" );
   addNumber( "contrast", "Strength of sender relative to receiver.", 0.2, 0.0, 1.0, 0.01, "", "%" );
   
   newSection( "Chirps" );
+  addBoolean( "nochirps", "if enabled, there will be no chirps", false );
   addSelection( "chirptype", "Type of chirp", "TypeA|TypeB" );
   addNumber( "chirpdelay", "Minimum time until the first chrip", 1.0, 0.0, 1000.0, 0.01, "s");
   addNumber( "chirpduration", "Minimum chirp duration, is extended to integer multiple of EOD period", 0.01, 0.001, 0.5, 0.001, "s", "ms" );
@@ -301,45 +302,59 @@ string EigenmanniaChirps::toString( SignalContent content ) {
 }
 
 bool EigenmanniaChirps::createStimulus( void ) {
+  if ( GlobalEField == -1) {
+    warning("Did not find a valid GlobalEField trace, check output trace configuration!");
+  } else {
+    outTraces[ GlobalEField ].stepsize()
+    sampling_interval = 1./40000.;
+  }
+  
   stimData.clear();  
   string ident = name.size() == 0 ? "Eigenmannia chirps" : name;
   double sender_eodf = eodf + deltaf;
-  EigenmanniaEOD eod( eod_model );
+  EigenmanniaEOD eod( eod_model, sampling_interval );
   SampleDataD eod_waveform;
   SampleDataD first_eod_waveform;
   SampleDataD chirp_waveform;
   int chirp_count = static_cast<int>( floor( stimulus_duration * chirp_rate ) );
-  double ici = stimulus_duration / chirp_count;
+  if ( no_chirps ) {
+    chirp_count = 0;
+  }
+  double ici = no_chirps ? stimulus_duration : stimulus_duration / chirp_count;
   if ( ici < chirp_duration ) {
     return false; 
   }
   if ( chirp_count * chirp_duration >= stimulus_duration ) {
     return false;
   }
-  if ( chirp_type == ChirpType::TYPE_A ){
-    TypeAChirp chirp( sampling_interval, eod_model);
-    chirp_waveform = chirp.getWaveform( sender_eodf, chirp_duration, signal_content );
-  } else {
-    TypeBChirp chirp( sampling_interval, eod_model);
-    chirp_waveform = chirp.getWaveform( sender_eodf, chirp_duration, signal_content );
-  }
   
-  double shift = eod.phaseShift( sender_eodf );
-  first_eod_waveform = eod.getEOD( sender_eodf, chirp_delay, shift, false );
-  eod_waveform = eod.getEOD( sender_eodf, ici, shift, false );
-
-  SampleDataD temp = first_eod_waveform;
+  SampleDataD temp;
   std::vector<double> chirp_times(chirp_count, 0.0);
-  for ( int i = 0; i < chirp_count; ++i ){
-    chirp_times[i] = stimData.size() * sampling_interval + chirp_waveform.size() * sampling_interval / 2;
-    temp.append( chirp_waveform );
-    temp.append( eod_waveform );
+  if ( no_chirps ) {
+    eod_waveform = eod.getEOD( sender_eodf, ici, 0.0, false );
+    temp = eod_waveform;
+  } else {
+    if ( chirp_type == ChirpType::TYPE_A ){
+      TypeAChirp chirp( sampling_interval, eod_model);
+      chirp_waveform = chirp.getWaveform( sender_eodf, chirp_duration, signal_content );
+    } else {
+      TypeBChirp chirp( sampling_interval, eod_model);
+      chirp_waveform = chirp.getWaveform( sender_eodf, chirp_duration, signal_content );
+    }
+  
+    double shift = eod.phaseShift( sender_eodf );
+    first_eod_waveform = eod.getEOD( sender_eodf, chirp_delay, shift, false );
+    eod_waveform = eod.getEOD( sender_eodf, ici, shift, false );
+
+    temp = first_eod_waveform;
+    for ( int i = 0; i < chirp_count; ++i ){
+      chirp_times[i] = stimData.size() * sampling_interval + chirp_waveform.size() * sampling_interval / 2;
+      temp.append( chirp_waveform );
+      temp.append( eod_waveform );
+    }
   }
   stimData = temp;
   stimData /= max(stimData);
-  if ( GlobalEField == -1) {
-    warning("Did not find a valid GlobalEField trace, check output trace configuration!");
-  }
   stimData.setTrace( GlobalEField );
   stimData.setSampleInterval( sampling_interval );
   stimData.description().addNumber( "real duration", stimData.size() * sampling_interval, "s" );
@@ -358,11 +373,12 @@ void EigenmanniaChirps::readOptions( void ) {
   name = text( "name" );
   stimulus_duration = number( "duration", 0.0, "s" );
   deltaf = number( "deltaf", 0.0, "Hz" );
+  no_chirps = boolean( "nochirps" );
   chirp_duration = number( "chirpduration", 0.0, "s" );
   chirp_rate = number( "chirprate", 0.0, "Hz" );
   chirp_delay = number( "chirpdelay", 0.0, "s" );
   pause = number( "pause", 0.0, "s" );
-  sampling_interval = 1./20000;
+  sampling_interval = 1./40000;
   stimulus_contrast = number( "contrast" );
   this->repeats = static_cast<int>(number( "repeats" ));
 
@@ -413,6 +429,7 @@ int EigenmanniaChirps::main( void ) {
   
   // stimulus intensity:
   double intensity = stimulus_contrast * receiver_amplitude;
+  cerr << "Receiver amplitude: " << receiver_amplitude << "sender intensity " << intensity << endl;
   stimData.setIntensity( intensity );
   
   // output signal:
